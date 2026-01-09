@@ -28,12 +28,12 @@ const ForgotPassword = () => {
 
       setIsSubmitted(true);
       toast.success("E-mail de recuperação enviado!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Reset password error:", error);
-      let msg = error.message || "Erro ao enviar e-mail de recuperação.";
-      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
-        msg = "Erro de conexão. Verifique sua internet.";
-      }
+      const baseMsg = error instanceof Error ? error.message : "Erro ao enviar e-mail de recuperação.";
+      const msg = baseMsg === "Failed to fetch" || baseMsg.toLowerCase().includes("fetch")
+        ? "Erro de conexão. Verifique sua internet."
+        : baseMsg;
       toast.error(msg);
     } finally {
       setIsLoading(false);

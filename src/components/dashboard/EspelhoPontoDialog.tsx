@@ -28,55 +28,56 @@ export function EspelhoPontoDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
-  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
-  const [fetchingEmployees, setFetchingEmployees] = useState(false);
+    const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+    const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+    const [shiftType, setShiftType] = useState<string>("auto");
+    const [fetchingEmployees, setFetchingEmployees] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      fetchEmployees();
-    }
-  }, [open]);
-
-  const fetchEmployees = async () => {
-    setFetchingEmployees(true);
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
-        
-        if (profile?.company_id) {
-            const { data } = await supabase
-                .from('employees')
-                .select('id, name, code')
-                .eq('company_id', profile.company_id)
-                .order('name');
-            setEmployees(data || []);
+    useEffect(() => {
+        if (open) {
+            fetchEmployees();
         }
-    } catch (error) {
-        console.error("Erro ao buscar funcionários:", error);
-        toast.error("Erro ao carregar lista de funcionários.");
-    } finally {
-        setFetchingEmployees(false);
-    }
-  };
+    }, [open]);
 
-  const handleGenerate = async () => {
-    if (!selectedEmployee) {
-        toast.error("Selecione um funcionário.");
-        return;
-    }
+    const fetchEmployees = async () => {
+        setFetchingEmployees(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+            
+            if (profile?.company_id) {
+                const { data } = await supabase
+                    .from('employees')
+                    .select('id, name, code')
+                    .eq('company_id', profile.company_id)
+                    .order('name');
+                setEmployees(data || []);
+            }
+        } catch (error) {
+            console.error("Erro ao buscar funcionários:", error);
+            toast.error("Erro ao carregar lista de funcionários.");
+        } finally {
+            setFetchingEmployees(false);
+        }
+    };
 
-    setLoading(true);
-    try {
-        await generateEspelhoPDF(selectedEmployee, selectedMonth);
-        toast.success("Espelho de Ponto gerado com sucesso!");
-        setOpen(false);
-    } catch (error: any) {
-        toast.error(`Erro ao gerar PDF: ${error.message}`);
-    } finally {
-        setLoading(false);
-    }
-  };
+    const handleGenerate = async () => {
+        if (!selectedEmployee) {
+            toast.error("Selecione um funcionário.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await generateEspelhoPDF(selectedEmployee, selectedMonth, shiftType);
+            toast.success("Espelho de Ponto gerado com sucesso!");
+            setOpen(false);
+        } catch (error: any) {
+            toast.error(`Erro ao gerar PDF: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -126,6 +127,22 @@ export function EspelhoPontoDialog() {
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                 />
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-sm font-medium leading-none">
+                    Tipo de Escala (Forçar)
+                </label>
+                <Select value={shiftType} onValueChange={setShiftType}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecione a escala" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="auto">Automático (Usar Cadastro)</SelectItem>
+                        <SelectItem value="standard">Normal (Seg-Sex)</SelectItem>
+                        <SelectItem value="12x36">12x36</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
         </div>
 

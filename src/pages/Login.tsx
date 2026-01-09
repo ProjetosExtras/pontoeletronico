@@ -50,12 +50,12 @@ const Login = () => {
           navigate("/ponto");
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login error:", error);
-      let msg = error.message || "Erro ao fazer login.";
-      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
-        msg = "Erro de conexão. Verifique sua internet ou tente novamente.";
-      }
+      const baseMsg = error instanceof Error ? error.message : "Erro ao fazer login.";
+      const msg = baseMsg === "Failed to fetch" || baseMsg.toLowerCase().includes("fetch")
+        ? "Erro de conexão. Verifique sua internet ou tente novamente."
+        : baseMsg;
       toast.error(msg);
     } finally {
       setIsLoading(false);

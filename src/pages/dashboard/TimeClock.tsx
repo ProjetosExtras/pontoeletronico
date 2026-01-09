@@ -15,12 +15,27 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
+
+type EmployeeOption = {
+  id: string;
+  name: string;
+};
+
+type TimeEntryRow = {
+  id: string;
+  timestamp: string;
+  type: string;
+  location_lat?: number | null;
+  location_long?: number | null;
+  nsr?: number | null;
+  employees?: { name?: string | null } | null;
+};
 
 const TimeClock = () => {
-  const [entries, setEntries] = useState<any[]>([]);
+  const [entries, setEntries] = useState<TimeEntryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
 

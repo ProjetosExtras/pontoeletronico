@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -12,6 +12,24 @@ const pad = (str: string | number, length: number, char: string = '0') => {
 // Helper to format CNPJ/CPF removing special chars
 const cleanDoc = (doc: string) => doc.replace(/\D/g, '');
 
+type EmployeeRow = {
+    name?: string | null;
+    pis?: string | null;
+    code?: string | null;
+    cpf?: string | null;
+    admission_date?: string | null;
+    job_title?: string | null;
+    shift_type?: string | null;
+};
+
+type TimeEntryRow = {
+    timestamp: string;
+    type?: string | null;
+    nsr?: number | null;
+    employee_id?: string | null;
+    employees?: EmployeeRow | null;
+};
+
 export const generateAFD = async () => {
     try {
         // Fetch Company Data
@@ -22,13 +40,14 @@ export const generateAFD = async () => {
         const { data: company } = await supabase.from('companies').select('*').eq('id', profile.company_id).single();
         
         // Fetch Time Entries
-        const { data: entries } = await supabase
+        const { data: entriesRaw } = await supabase
             .from('time_entries')
             .select('*, employees(pis)')
             .eq('company_id', profile.company_id)
             .order('nsr', { ascending: true });
 
-        if (!entries || entries.length === 0) throw new Error("Sem registros para gerar AFD");
+        const entries = (entriesRaw as unknown as TimeEntryRow[] | null) || [];
+        if (entries.length === 0) throw new Error("Sem registros para gerar AFD");
 
         let content = "";
         let lineCounter = 0;
@@ -60,7 +79,7 @@ export const generateAFD = async () => {
 
         downloadFile(content, `AFD_${format(new Date(), 'yyyyMMdd')}.txt`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Erro ao gerar AFD:", error);
         throw error;
     }
@@ -89,7 +108,7 @@ const downloadFile = (content: string, filename: string) => {
     window.URL.revokeObjectURL(url);
 };
 
-export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: string) => {
+export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: string, shiftTypeOverride?: string) => {
     try {
          // Fetch Data
          const { data: { user } } = await supabase.auth.getUser();
@@ -122,13 +141,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
              query = query.eq('employee_id', employeeId);
          }
 
-         const { data: entries } = await query;
+         const { data: entriesRaw } = await query;
+         const entries = (entriesRaw as unknown as TimeEntryRow[] | null) || [];
 
-        if (!entries || entries.length === 0) throw new Error("Sem dados para gerar o relatório neste período.");
+        if (entries.length === 0) throw new Error("Sem dados para gerar o relatório neste período.");
 
         // Group by Employee
         const employeesMap = new Map();
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
             const empName = entry.employees?.name || "Funcionário Desconhecido";
             if (!employeesMap.has(empName)) {
                 employeesMap.set(empName, {
@@ -140,10 +160,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
         });
 
         const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
 
         // Initialize PDF
         // @ts-ignore
-        const doc = new jsPDF('p', 'mm', 'a4');
+        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
         const pdfWidth = doc.internal.pageSize.getWidth();
         // const pdfHeight = doc.internal.pageSize.getHeight();
         
@@ -157,7 +179,51 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             pageCount++;
 
             const empData = empObj.data;
-            const empEntries = empObj.entries;
+            const empEntries = empObj.entries as TimeEntryRow[];
+
+            const entriesByDay = new Map<string, TimeEntryRow[]>();
+            empEntries.forEach((e: TimeEntryRow) => {
+                const d = new Date(e.timestamp);
+                const key = format(d, 'yyyy-MM-dd');
+                if (!entriesByDay.has(key)) entriesByDay.set(key, []);
+                entriesByDay.get(key)!.push(e);
+            });
+
+            entriesByDay.forEach((arr) => {
+                arr.sort((a: TimeEntryRow, b: TimeEntryRow) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            });
+
+            const workedDayKeys = Array.from(entriesByDay.keys()).sort();
+            const workedDaysCount = workedDayKeys.length;
+            const longShiftDaysCount = workedDayKeys.reduce((acc, key) => {
+                const arr = entriesByDay.get(key) || [];
+                if (arr.length < 2) return acc;
+                const first = new Date(arr[0].timestamp);
+                const last = new Date(arr[arr.length - 1].timestamp);
+                const spanMins = Math.max(0, Math.round((last.getTime() - first.getTime()) / 60000));
+                return spanMins >= 600 ? acc + 1 : acc;
+            }, 0);
+
+            // Determine Shift Type
+            let is12x36 = false;
+            if (shiftTypeOverride === '12x36') {
+                is12x36 = true;
+            } else if (shiftTypeOverride === 'standard') {
+                is12x36 = false;
+            } else if (empData.shift_type) {
+                is12x36 = empData.shift_type === '12x36';
+            } else {
+                // Heuristic fallback
+                is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
+            }
+
+            const hasSaturdayWork = workedDayKeys.some((key) => {
+                const d = new Date(`${key}T00:00:00`);
+                return getDay(d) === 6;
+            });
+
+            const anchorKey = workedDayKeys[0];
+            const anchorDay = anchorKey ? new Date(`${anchorKey}T00:00:00`) : new Date(startPeriod);
 
             // Info Rows Helper
             const renderInfoRow = (label: string, value: string) => `
@@ -169,6 +235,18 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const admission = empData.admission_date ? format(new Date(empData.admission_date), 'dd/MM/yyyy') : '-';
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
+
+            const scheduleLabel = is12x36 ? '12X36' : 'NORMAL';
+            const scheduleRows = is12x36
+              ? `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`
+              : [
+                    `<tr><td>SEG</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
+                    `<tr><td>TER</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
+                    `<tr><td>QUA</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
+                    `<tr><td>QUI</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
+                    `<tr><td>SEX</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
+                    ...(hasSaturdayWork ? [`<tr><td>SAB</td><td>08:00</td><td>12:00</td><td> - </td><td>12:00</td></tr>`] : []),
+                ].join('');
 
             // Build HTML for this employee
             const container = document.createElement('div');
@@ -233,14 +311,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         </div>
                     </div>
                     <div class="info-right">
-                        <div class="section-title">Horário de Trabalho</div>
+                        <div class="section-title">Horário de Trabalho (${scheduleLabel})</div>
                         <table style="font-size: 9px; margin-top: 5px;">
                             <tr style="background: #f0f0f0;"><th></th><th>ENT 1</th><th>SAI 1</th><th>ENT 2</th><th>SAI 2</th></tr>
-                            <tr><td>SEG</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>
-                            <tr><td>TER</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>
-                            <tr><td>QUA</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>
-                            <tr><td>QUI</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>
-                            <tr><td>SEX</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>
+                            ${scheduleRows}
                         </table>
                     </div>
                 </div>
@@ -268,36 +342,75 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             daysInMonth.forEach(day => {
                 const dayStr = format(day, 'dd/MM/yy - iii', { locale: ptBR });
-                const isWeekend = getDay(day) === 0 || getDay(day) === 6;
-                const rowClass = isWeekend ? 'weekend' : '';
-                
-                const dayEntries = empEntries.filter((e: any) => isSameDay(new Date(e.timestamp), day));
-                dayEntries.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                const dow = getDay(day);
+                const key = format(day, 'yyyy-MM-dd');
+                const dayEntries = entriesByDay.get(key) || [];
+                const hasAnyEntry = dayEntries.length > 0;
+                const isPast = day.getTime() < todayStart.getTime();
 
-                const fmt = (e: any) => e ? format(new Date(e.timestamp), 'HH:mm') : '';
-                const entrada1 = dayEntries.find((e: any) => e.type === 'entrada') || dayEntries[0];
-                const saida1 = dayEntries.find((e: any) => e.type === 'intervalo') || dayEntries[1];
-                const entrada2 = dayEntries.find((e: any) => e.type === 'retorno') || dayEntries[2];
-                const saida2 = dayEntries.find((e: any) => e.type === 'saida') || dayEntries[3];
+                const expectedStart = is12x36 ? '07:00' : '08:00';
+                const expectedMinutes = is12x36
+                  ? (differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0)
+                  : (dow === 0 ? 0 : (dow === 6 ? (hasSaturdayWork ? 240 : 0) : 480));
+                const shouldWork = expectedMinutes > 0;
+
+                const rowClass = (!shouldWork && !hasAnyEntry) ? 'weekend' : '';
+                
+                const fmt = (e: TimeEntryRow | undefined) => e ? format(new Date(e.timestamp), 'HH:mm') : '';
+                const entrada1 = dayEntries.find((e: TimeEntryRow) => e.type === 'entrada') || dayEntries[0];
+                const saida1 = dayEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || dayEntries[1];
+                const entrada2 = dayEntries.find((e: TimeEntryRow) => e.type === 'retorno') || dayEntries[2];
+                const saida2 = dayEntries.find((e: TimeEntryRow) => e.type === 'saida') || dayEntries[dayEntries.length - 1];
 
                 const t1 = fmt(entrada1);
                 const t2 = fmt(saida1);
                 const t3 = fmt(entrada2);
                 const t4 = fmt(saida2);
 
-                let normais = '';
-                let faltas = '';
-                let extras = '';
-                
-                const isPast = day < new Date();
-                
-                if (!isWeekend && dayEntries.length === 0 && isPast) {
-                    faltas = '08:00';
-                    totalFaltas += 480;
-                } else if (!isWeekend && dayEntries.length >= 2) {
-                    normais = '08:00';
-                    totalNormais += 480;
+                let workedMinutes = 0;
+                if (entrada1 && saida2) {
+                    const start = new Date(entrada1.timestamp);
+                    const end = new Date(saida2.timestamp);
+                    const presence = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    let breakMinutes = 0;
+                    if (saida1 && entrada2) {
+                        const b1 = new Date(saida1.timestamp);
+                        const b2 = new Date(entrada2.timestamp);
+                        breakMinutes = Math.max(0, Math.round((b2.getTime() - b1.getTime()) / 60000));
+                    }
+                    workedMinutes = Math.max(0, presence - breakMinutes);
                 }
+
+                const formatMinutes = (mins: number) => {
+                    const h = Math.floor(mins / 60);
+                    const m = mins % 60;
+                    return `${pad(h, 2)}:${pad(m, 2)}`;
+                };
+
+                const normaisMinutes = shouldWork ? Math.min(workedMinutes, expectedMinutes) : 0;
+                const faltasMinutes = shouldWork && isPast ? Math.max(0, expectedMinutes - workedMinutes) : 0;
+                const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
+
+                totalNormais += normaisMinutes;
+                totalFaltas += faltasMinutes;
+                totalExtras += extrasMinutes;
+
+                const expectedStartDate = new Date(day);
+                const [eh, em] = expectedStart.split(':').map(Number);
+                expectedStartDate.setHours(eh, em, 0, 0);
+                const atrasoMins = (shouldWork && entrada1)
+                  ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
+                  : 0;
+                const atrasoMinutes = atrasoMins > 5 ? atrasoMins : 0;
+
+                const obsParts: string[] = [];
+                if (atrasoMinutes > 0) obsParts.push(`ATRASO ${formatMinutes(atrasoMinutes)}`);
+                if (!shouldWork && workedMinutes > 0) obsParts.push(`EXTRA ${formatMinutes(workedMinutes)}`);
+
+                const normais = normaisMinutes > 0 ? formatMinutes(normaisMinutes) : '';
+                const faltas = faltasMinutes > 0 ? formatMinutes(faltasMinutes) : '';
+                const extras = extrasMinutes > 0 ? formatMinutes(extrasMinutes) : '';
+                const obs = obsParts.join(' | ');
 
                 html += `
                     <tr class="${rowClass}">
@@ -309,7 +422,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td>${normais}</td>
                         <td>${faltas}</td>
                         <td>${extras}</td>
-                        <td></td>
+                        <td>${obs}</td>
                     </tr>
                 `;
             });
@@ -370,7 +483,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
         doc.save(`Espelho_Ponto_${format(new Date(), 'yyyy-MM')}.pdf`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Erro ao gerar PDF:", error);
         throw error;
     }

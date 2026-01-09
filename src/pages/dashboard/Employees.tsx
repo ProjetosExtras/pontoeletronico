@@ -1,16 +1,41 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Search, Edit, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { EmployeeFormDialog } from "@/components/dashboard/EmployeeFormDialog";
+import { toast } from "sonner";
+
+type Employee = {
+  id: string;
+  name: string;
+  code: string | null;
+  cpf?: string | null;
+  pis?: string | null;
+  job_title?: string | null;
+  admission_date?: string | null;
+  pin?: string | null;
+  shift_type?: '12x36' | 'standard';
+};
 
 const Employees = () => {
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingEmployee, setEditingEmployee] = useState<any>(null);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -45,6 +70,35 @@ const Employees = () => {
     }
   };
 
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
+    
+    try {
+      // Delete related time entries first
+      const { error: timeEntriesError } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('employee_id', employeeToDelete.id);
+
+      if (timeEntriesError) throw timeEntriesError;
+
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', employeeToDelete.id);
+        
+      if (error) throw error;
+      
+      toast.success("Funcionário excluído com sucesso!");
+      fetchEmployees();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      toast.error("Erro ao excluir funcionário.");
+    } finally {
+      setEmployeeToDelete(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex justify-between items-center mb-6">
@@ -62,6 +116,23 @@ const Employees = () => {
             setEditingEmployee(null);
         }}
       />
+
+      <AlertDialog open={!!employeeToDelete} onOpenChange={(open) => !open && setEmployeeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o funcionário {employeeToDelete?.name} e todos os seus dados associados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEmployee} className="bg-red-500 hover:bg-red-600">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex items-center mb-4">
         <div className="relative w-full max-w-sm">
@@ -82,17 +153,18 @@ const Employees = () => {
               <TableHead>Matrícula</TableHead>
               <TableHead>CPF</TableHead>
               <TableHead>Cargo</TableHead>
+              <TableHead>Escala</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">Carregando...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8">Carregando...</TableCell>
                 </TableRow>
             ) : employees.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell>
                 </TableRow>
             ) : (
                 employees.map((employee) => (
@@ -101,6 +173,13 @@ const Employees = () => {
                     <TableCell>{employee.code}</TableCell>
                     <TableCell>{employee.cpf || '-'}</TableCell>
                     <TableCell>{employee.job_title || '-'}</TableCell>
+                    <TableCell>
+                        {employee.shift_type === '12x36' ? (
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">12x36</Badge>
+                        ) : (
+                            <Badge variant="outline">Normal</Badge>
+                        )}
+                    </TableCell>
                     <TableCell className="text-right">
                         <Button 
                             variant="ghost" 
@@ -112,7 +191,12 @@ const Employees = () => {
                         >
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => setEmployeeToDelete(employee)}
+                        >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </TableCell>

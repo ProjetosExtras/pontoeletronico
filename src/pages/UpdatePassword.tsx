@@ -58,12 +58,12 @@ const UpdatePassword = () => {
         navigate("/login");
       }, 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Update password error:", error);
-      let msg = error.message || "Erro ao atualizar senha.";
-      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
-        msg = "Erro de conexão. Verifique sua internet.";
-      }
+      const baseMsg = error instanceof Error ? error.message : "Erro ao atualizar senha.";
+      const msg = baseMsg === "Failed to fetch" || baseMsg.toLowerCase().includes("fetch")
+        ? "Erro de conexão. Verifique sua internet."
+        : baseMsg;
       toast.error(msg);
     } finally {
       setIsLoading(false);

@@ -89,12 +89,12 @@ const Register = () => {
           navigate("/ponto");
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Registration error:", error);
-      let msg = error.message || "Erro ao criar conta. Tente novamente.";
-      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
-        msg = "Erro de conexão. Verifique sua internet.";
-      }
+      const baseMsg = error instanceof Error ? error.message : "Erro ao criar conta. Tente novamente.";
+      const msg = baseMsg === "Failed to fetch" || baseMsg.toLowerCase().includes("fetch")
+        ? "Erro de conexão. Verifique sua internet."
+        : baseMsg;
       toast.error(msg);
     } finally {
       setIsLoading(false);

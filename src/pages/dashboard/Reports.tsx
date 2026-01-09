@@ -17,8 +17,9 @@ const Reports = () => {
         if (type === 'AEJ') await generateAEJ();
         
         toast.success(`Relatório ${type} gerado com sucesso!`);
-    } catch (error: any) {
-        toast.error(`Erro ao gerar ${type}: ${error.message}`);
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido.";
+        toast.error(`Erro ao gerar ${type}: ${msg}`);
     } finally {
         setLoading(null);
     }

@@ -21,6 +21,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Plus } from "lucide-react";
@@ -35,6 +42,7 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
+  shift_type: z.enum(["standard", "12x36"]).default("standard"),
 });
 
 interface EmployeeFormDialogProps {
@@ -281,6 +289,28 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="shift_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de Escala</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a escala" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="standard">Normal (Seg-Sex/Sáb)</SelectItem>
+                      <SelectItem value="12x36">12x36</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
