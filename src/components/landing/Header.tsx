@@ -29,8 +29,13 @@ const Header = () => {
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
+            <Link to="/ponto">
+              <Button variant="outline" className="border-primary/20 hover:bg-primary/5 hover:text-primary">
+                Bater Ponto
+              </Button>
+            </Link>
             <Link to="/login">
-              <Button variant="ghost">Entrar</Button>
+              <Button variant="ghost">Área do Gestor</Button>
             </Link>
             <Link to="/registro">
               <Button variant="hero">Começar Grátis</Button>
@@ -60,8 +65,11 @@ const Header = () => {
                 Planos
               </Link>
               <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
+                <Link to="/ponto">
+                  <Button variant="outline" className="w-full border-primary/20">Bater Ponto</Button>
+                </Link>
                 <Link to="/login">
-                  <Button variant="outline" className="w-full">Entrar</Button>
+                  <Button variant="ghost" className="w-full">Área do Gestor</Button>
                 </Link>
                 <Link to="/registro">
                   <Button variant="hero" className="w-full">Começar Grátis</Button>

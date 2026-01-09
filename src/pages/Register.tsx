@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff, ArrowLeft, Building2 } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Building2, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const Register = () => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "",
@@ -20,10 +24,81 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Will be implemented with Supabase Auth
-    console.log("Register attempt:", formData);
+    setIsLoading(true);
+
+    try {
+      // 1. Create Auth User
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            company_name: formData.companyName,
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // 2. Create Company
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .insert([
+            { 
+              name: formData.companyName, 
+              cnpj: formData.cnpj,
+              owner_id: authData.user.id 
+            }
+          ])
+          .select()
+          .single();
+
+        if (companyError) {
+           console.error("Company creation error:", companyError);
+           
+           if (!authData.session) {
+             toast.success("Conta criada! Por favor, verifique seu e-mail para confirmar o cadastro antes de continuar.");
+             navigate("/login");
+             return;
+           }
+           
+           throw new Error("Erro ao criar empresa. CNPJ já cadastrado?");
+        }
+
+        if (companyData) {
+          // 3. Create Profile linked to User and Company
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: authData.user.id,
+                company_id: companyData.id,
+                name: formData.name,
+                email: formData.email,
+                role: 'admin'
+              }
+            ]);
+
+          if (profileError) throw profileError;
+
+          toast.success("Conta criada com sucesso!");
+          navigate("/ponto");
+        }
+      }
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      let msg = error.message || "Erro ao criar conta. Tente novamente.";
+      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
+        msg = "Erro de conexão. Verifique sua internet.";
+      }
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -123,30 +198,36 @@ const Register = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
-              <Button type="submit" variant="hero" className="w-full">
-                Criar Conta Grátis
+              <Button 
+                type="submit" 
+                className="w-full gradient-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] h-11 transition-all duration-200"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Criando conta...
+                  </>
+                ) : (
+                  "Criar Conta Grátis"
+                )}
               </Button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Ao criar sua conta, você concorda com nossos{" "}
-                <a href="#" className="text-primary hover:underline">Termos de Uso</a>
-                {" "}e{" "}
-                <a href="#" className="text-primary hover:underline">Política de Privacidade</a>.
-              </p>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-muted-foreground">
-                Já tem uma conta?{" "}
-                <Link to="/login" className="text-primary font-medium hover:underline">
-                  Fazer login
-                </Link>
-              </p>
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">Já tem uma conta? </span>
+              <Link to="/login" className="font-medium text-primary hover:underline">
+                Fazer login
+              </Link>
             </div>
           </div>
         </div>

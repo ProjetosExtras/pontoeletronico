@@ -37,8 +37,8 @@ const HeroSection = () => {
                 </Button>
               </Link>
               <Link to="/ponto">
-                <Button variant="outline" size="xl" className="w-full sm:w-auto">
-                  Ver Demonstração
+                <Button variant="outline" size="xl" className="w-full sm:w-auto border-primary/20 hover:bg-primary/5 hover:text-primary">
+                  Bater Ponto Agora
                 </Button>
               </Link>
             </div>

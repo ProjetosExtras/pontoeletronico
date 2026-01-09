@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import ClockIn from "./pages/ClockIn";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Documentation from "./pages/Documentation";
 import Status from "./pages/Status";
 import HelpCenter from "./pages/HelpCenter";
@@ -20,6 +22,11 @@ import Features from "./pages/Features";
 import LGPD from "./pages/LGPD";
 import Terms from "./pages/Terms";
 import Ordinance671 from "./pages/Ordinance671";
+import Dashboard from "./pages/Dashboard";
+import Employees from "./pages/dashboard/Employees";
+import TimeClock from "./pages/dashboard/TimeClock";
+import Reports from "./pages/dashboard/Reports";
+import Settings from "./pages/dashboard/Settings";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -32,6 +39,16 @@ const App = () => (
           <Route path="/ponto" element={<ClockIn />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/atualizar-senha" element={<UpdatePassword />} />
+          
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/funcionarios" element={<Employees />} />
+          <Route path="/dashboard/pontos" element={<TimeClock />} />
+          <Route path="/dashboard/relatorios" element={<Reports />} />
+          <Route path="/dashboard/configuracoes" element={<Settings />} />
+
           <Route path="/documentacao" element={<Documentation />} />
           <Route path="/status" element={<Status />} />
           <Route path="/ajuda" element={<HelpCenter />} />

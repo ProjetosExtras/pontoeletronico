@@ -1,20 +1,65 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Will be implemented with Supabase Auth
-    console.log("Login attempt:", { email, password });
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("E-mail ou senha incorretos.");
+        }
+        if (error.message.includes("Email not confirmed")) {
+          throw new Error("E-mail não confirmado. Verifique sua caixa de entrada.");
+        }
+        throw error;
+      }
+
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        toast.success("Login realizado com sucesso!");
+        
+        if (profile?.role === 'admin') {
+          navigate("/dashboard");
+        } else {
+          navigate("/ponto");
+        }
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      let msg = error.message || "Erro ao fazer login.";
+      if (msg === "Failed to fetch" || (error.name === "TypeError" && msg.includes("fetch"))) {
+        msg = "Erro de conexão. Verifique sua internet ou tente novamente.";
+      }
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,9 +100,9 @@ const Login = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="password">Senha</Label>
-                  <a href="#" className="text-sm text-primary hover:underline">
+                  <Link to="/recuperar-senha" className="text-sm text-primary hover:underline">
                     Esqueceu a senha?
-                  </a>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Input
@@ -78,8 +123,8 @@ const Login = () => {
                 </div>
               </div>
 
-              <Button type="submit" variant="hero" className="w-full">
-                Entrar
+              <Button type="submit" variant="hero" className="w-full" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Entrar"}
               </Button>
             </form>
 
