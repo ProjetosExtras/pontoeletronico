@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { EditEntryDialog } from "@/components/dashboard/EditEntryDialog";
 import { CreateEntryDialog } from "@/components/dashboard/CreateEntryDialog";
 import { ImportEntriesDialog } from "@/components/dashboard/ImportEntriesDialog";
