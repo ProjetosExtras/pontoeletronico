@@ -159,11 +159,16 @@ const TimeClock = () => {
                 .lte('timestamp', endDate.toISOString());
         }
 
-        const { error } = await query;
+        const { data: deletedData, error } = await query.select();
 
         if (error) throw error;
 
-        toast.success("Importações excluídas com sucesso!");
+        if (!deletedData || deletedData.length === 0) {
+             toast.warning("Nenhum registro foi excluído. Verifique se existem importações neste mês ou se você tem permissão.");
+        } else {
+             toast.success(`${deletedData.length} importações excluídas com sucesso!`);
+        }
+        
         fetchEntries();
     } catch (error) {
         console.error("Error clearing imports:", error);
