@@ -15,7 +15,18 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 type EmployeeOption = {
   id: string;
@@ -38,6 +49,7 @@ const TimeClock = () => {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -122,6 +134,46 @@ const TimeClock = () => {
       }
   };
 
+  const handleClearImports = async () => {
+    try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+        
+        if (!profile?.company_id) return;
+
+        let query = supabase
+            .from('time_entries')
+            .delete()
+            .eq('company_id', profile.company_id)
+            .eq('device_info', 'Importação Excel');
+
+        // Apply month filter to deletion as well to be safe/consistent with view
+        if (selectedMonth) {
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const startDate = startOfMonth(new Date(year, month - 1));
+            const endDate = endOfMonth(new Date(year, month - 1));
+            
+            query = query
+                .gte('timestamp', startDate.toISOString())
+                .lte('timestamp', endDate.toISOString());
+        }
+
+        const { error } = await query;
+
+        if (error) throw error;
+
+        toast.success("Importações excluídas com sucesso!");
+        fetchEntries();
+    } catch (error) {
+        console.error("Error clearing imports:", error);
+        toast.error("Erro ao excluir importações.");
+    } finally {
+        setLoading(false);
+        setIsClearDialogOpen(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -129,8 +181,33 @@ const TimeClock = () => {
           <h2 className="text-2xl font-bold tracking-tight">Registros de Ponto</h2>
           <p className="text-muted-foreground">Monitoramento e histórico de marcações.</p>
         </div>
-        <ImportEntriesDialog />
+        <div className="flex items-center gap-2">
+            <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpar Importações
+            </Button>
+            <ImportEntriesDialog />
+        </div>
       </div>
+
+      <AlertDialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Importações?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação excluirá todas as marcações identificadas como "Importação Excel" 
+              {selectedMonth ? ` no mês de ${selectedMonth}` : ""}. 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearImports} className="bg-red-500 hover:bg-red-600">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card className="mb-6">
         <CardContent className="pt-6">
