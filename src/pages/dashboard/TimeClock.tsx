@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { EditEntryDialog } from "@/components/dashboard/EditEntryDialog";
 import { ImportEntriesDialog } from "@/components/dashboard/ImportEntriesDialog";
 import {
     Select,
@@ -41,6 +42,8 @@ type TimeEntryRow = {
   location_long?: number | null;
   nsr?: number | null;
   employees?: { name?: string | null } | null;
+  justification?: string | null;
+  employee_id?: string;
 };
 
 const TimeClock = () => {
@@ -50,6 +53,7 @@ const TimeClock = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -116,7 +120,22 @@ const TimeClock = () => {
         const { data, error } = await query;
         
         if (error) throw error;
-        setEntries(data || []);
+        
+        // Deduplicate entries based on employee_id and timestamp (visual deduplication)
+        const uniqueEntries: TimeEntryRow[] = [];
+        const seen = new Set();
+        
+        if (data) {
+            data.forEach((entry: any) => {
+                const key = `${entry.employee_id}|${new Date(entry.timestamp).toISOString()}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueEntries.push(entry);
+                }
+            });
+        }
+
+        setEntries(uniqueEntries);
     } catch (error) {
         console.error("Error fetching entries:", error);
     } finally {
@@ -130,6 +149,7 @@ const TimeClock = () => {
           case 'saida': return 'bg-red-500';
           case 'intervalo': return 'bg-yellow-500';
           case 'retorno': return 'bg-blue-500';
+          case 'abono': return 'bg-purple-500';
           default: return 'bg-gray-500';
       }
   };
@@ -179,6 +199,26 @@ const TimeClock = () => {
     }
   };
 
+  const handleDeleteEntry = async () => {
+    if (!entryToDelete) return;
+    try {
+        const { error } = await supabase
+            .from('time_entries')
+            .delete()
+            .eq('id', entryToDelete);
+
+        if (error) throw error;
+        
+        toast.success("Registro excluído com sucesso!");
+        fetchEntries();
+    } catch (error) {
+        console.error("Error deleting entry:", error);
+        toast.error("Erro ao excluir registro.");
+    } finally {
+        setEntryToDelete(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -209,6 +249,23 @@ const TimeClock = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearImports} className="bg-red-500 hover:bg-red-600">
               Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este registro de ponto? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-red-500 hover:bg-red-600">
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -270,22 +327,30 @@ const TimeClock = () => {
                           <TableHead>Tipo</TableHead>
                           <TableHead>Localização</TableHead>
                           <TableHead>NSR</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                   </TableHeader>
                   <TableBody>
                       {loading ? (
                           <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4">Carregando...</TableCell>
+                              <TableCell colSpan={6} className="text-center py-4">Carregando...</TableCell>
                           </TableRow>
                       ) : entries.length === 0 ? (
                           <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">Nenhum registro encontrado.</TableCell>
+                              <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">Nenhum registro encontrado.</TableCell>
                           </TableRow>
                       ) : (
                           entries.map((entry) => (
                               <TableRow key={entry.id}>
                                   <TableCell className="font-medium">{entry.employees?.name || 'Desconhecido'}</TableCell>
-                                  <TableCell>{format(new Date(entry.timestamp), 'dd/MM/yyyy HH:mm:ss')}</TableCell>
+                                  <TableCell>
+                                    {format(new Date(entry.timestamp), 'dd/MM/yyyy HH:mm:ss')}
+                                    {entry.justification && (
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                            Obs: {entry.justification}
+                                        </div>
+                                    )}
+                                  </TableCell>
                                   <TableCell>
                                       <Badge className={getBadgeColor(entry.type)}>{entry.type.toUpperCase()}</Badge>
                                   </TableCell>
@@ -293,6 +358,20 @@ const TimeClock = () => {
                                       {entry.location_lat ? 'GPS' : 'IP'}
                                   </TableCell>
                                   <TableCell className="font-mono text-xs">{entry.nsr || '-'}</TableCell>
+                                  <TableCell className="text-right">
+                                      <div className="flex justify-end gap-2">
+                                          <EditEntryDialog entry={entry} onUpdate={fetchEntries} />
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => setEntryToDelete(entry.id)}
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            title="Excluir"
+                                          >
+                                              <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                      </div>
+                                  </TableCell>
                               </TableRow>
                           ))
                       )}

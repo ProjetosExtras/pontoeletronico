@@ -319,8 +319,30 @@ export function ImportEntriesDialog() {
             });
         }
 
+        // Buscar registros existentes para evitar duplicatas
+        const timestamps = parsedData.map(d => new Date(d.timestamp).getTime());
+        const minTime = new Date(Math.min(...timestamps));
+        // Subtract 1 minute and Add 1 minute to be safe with margins
+        minTime.setMinutes(minTime.getMinutes() - 1);
+        const maxTime = new Date(Math.max(...timestamps));
+        maxTime.setMinutes(maxTime.getMinutes() + 1);
+
+        const { data: existingEntries } = await supabase
+            .from('time_entries')
+            .select('employee_id, timestamp')
+            .eq('company_id', profile.company_id)
+            .gte('timestamp', minTime.toISOString())
+            .lte('timestamp', maxTime.toISOString());
+        
+        const existingSet = new Set();
+        existingEntries?.forEach(e => {
+            // Normalize to ISO string for comparison
+            existingSet.add(`${e.employee_id}|${new Date(e.timestamp).toISOString()}`);
+        });
+
         const entriesToInsert = [];
         const missingEmployees = new Set();
+        let duplicatesCount = 0;
 
         for (const entry of parsedData) {
             let empId = empMap.get(entry.empCode);
@@ -331,14 +353,21 @@ export function ImportEntriesDialog() {
             }
 
             if (empId) {
-                entriesToInsert.push({
-                    company_id: profile.company_id,
-                    employee_id: empId,
-                    type: entry.type,
-                    timestamp: entry.timestamp,
-                    device_info: "Importação Excel",
-                    created_at: new Date().toISOString()
-                });
+                const key = `${empId}|${new Date(entry.timestamp).toISOString()}`;
+                if (!existingSet.has(key)) {
+                    entriesToInsert.push({
+                        company_id: profile.company_id,
+                        employee_id: empId,
+                        type: entry.type,
+                        timestamp: entry.timestamp,
+                        device_info: "Importação Excel",
+                        created_at: new Date().toISOString()
+                    });
+                    // Add to set to prevent duplicates within the same import file
+                    existingSet.add(key);
+                } else {
+                    duplicatesCount++;
+                }
             } else {
                 missingEmployees.add(`${entry.empName} (Cód: ${entry.empCode})`);
             }
@@ -350,17 +379,27 @@ export function ImportEntriesDialog() {
 
             toast({
                 title: "Sucesso!",
-                description: `${entriesToInsert.length} registros importados.`,
+                description: `${entriesToInsert.length} registros importados.${duplicatesCount > 0 ? ` ${duplicatesCount} duplicados ignorados.` : ''}`,
             });
             setIsOpen(false);
             setParsedData([]);
             setFileName(null);
         } else {
-            toast({
-                variant: "destructive",
-                title: "Nenhum registro importado",
-                description: "Verifique se os códigos dos funcionários correspondem.",
-            });
+            if (duplicatesCount > 0) {
+                toast({
+                    title: "Importação concluída",
+                    description: `Todos os ${duplicatesCount} registros encontrados já existem no sistema.`,
+                });
+                setIsOpen(false);
+                setParsedData([]);
+                setFileName(null);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Nenhum registro importado",
+                    description: "Verifique se os códigos dos funcionários correspondem.",
+                });
+            }
         }
 
         if (missingEmployees.size > 0) {

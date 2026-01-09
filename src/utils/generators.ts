@@ -86,14 +86,162 @@ export const generateAFD = async () => {
 };
 
 export const generateAEJ = async () => {
-    // Placeholder implementation for AEJ
-    // AEJ requires processed data (hours worked, overtime), which requires a calculation engine.
-    // We will generate a basic structure.
     try {
-        const content = "ARQUIVO AEJ - EM DESENVOLVIMENTO\nConsulte o suporte para detalhes de implementação completa.";
+        // Fetch Company Data
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+        if (!profile?.company_id) throw new Error("Empresa não encontrada");
+
+        const { data: company } = await supabase.from('companies').select('*').eq('id', profile.company_id).single();
+        
+        // Fetch Time Entries for Current Month
+        const today = new Date();
+        const startPeriod = startOfMonth(today);
+        const endPeriod = endOfMonth(today);
+
+        const { data: entriesRaw } = await supabase
+            .from('time_entries')
+            .select('*, employees(name, pis, code, cpf, admission_date, shift_type)')
+            .eq('company_id', profile.company_id)
+            .gte('timestamp', startPeriod.toISOString())
+            .lte('timestamp', endPeriod.toISOString())
+            .order('timestamp', { ascending: true });
+
+        const entries = (entriesRaw as unknown as TimeEntryRow[] | null) || [];
+        if (entries.length === 0) throw new Error("Sem registros para gerar AEJ");
+
+        // Group by Employee
+        const employeesMap = new Map();
+        entries.forEach((entry) => {
+            const empName = entry.employees?.name || "Funcionário Desconhecido";
+            if (!employeesMap.has(empName)) {
+                employeesMap.set(empName, {
+                    data: entry.employees || {},
+                    entries: []
+                });
+            }
+            employeesMap.get(empName).entries.push(entry);
+        });
+
+        let content = "";
+        let lineCounter = 1;
+
+        // HEADER (Registro Tipo 1) - Simplified
+        // 000000001 + CNPJ + DataGeracao
+        const header = `000000001${pad(cleanDoc(company.cnpj), 14)}${format(new Date(), 'ddMMyyyyHHmm')}\n`;
+        content += header;
+        lineCounter++;
+
+        const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
+
+        // Process each employee
+        for (const [empName, empObj] of employeesMap) {
+            const empData = empObj.data;
+            const empEntries = empObj.entries as TimeEntryRow[];
+
+            // Employee Header (Registro Tipo 2 - Fictional for structure)
+            // 000000002 + CPF + PIS + Nome
+            content += `000000002${pad(cleanDoc(empData.cpf || ''), 11)}${pad(cleanDoc(empData.pis || ''), 11)}${empName.substring(0, 150).padEnd(150, ' ')}\n`;
+            lineCounter++;
+
+            // Process Days Logic (Reused from Espelho)
+            const entriesByDay = new Map<string, TimeEntryRow[]>();
+            empEntries.forEach((e: TimeEntryRow) => {
+                const d = new Date(e.timestamp);
+                const key = format(d, 'yyyy-MM-dd');
+                if (!entriesByDay.has(key)) entriesByDay.set(key, []);
+                entriesByDay.get(key)!.push(e);
+            });
+
+            entriesByDay.forEach((arr) => {
+                arr.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            });
+
+            // Determine Shift Type
+            const workedDayKeys = Array.from(entriesByDay.keys()).sort();
+            const workedDaysCount = workedDayKeys.length;
+            const longShiftDaysCount = workedDayKeys.reduce((acc, key) => {
+                const arr = entriesByDay.get(key) || [];
+                if (arr.length < 2) return acc;
+                const first = new Date(arr[0].timestamp);
+                const last = new Date(arr[arr.length - 1].timestamp);
+                const spanMins = Math.max(0, Math.round((last.getTime() - first.getTime()) / 60000));
+                return spanMins >= 600 ? acc + 1 : acc;
+            }, 0);
+
+            let is12x36 = false;
+            if (empData.shift_type) {
+                is12x36 = empData.shift_type === '12x36';
+            } else {
+                is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
+            }
+
+            const hasSaturdayWork = workedDayKeys.some((key) => {
+                const d = new Date(`${key}T00:00:00`);
+                return getDay(d) === 6;
+            });
+
+            const anchorKey = workedDayKeys[0];
+            const anchorDay = anchorKey ? new Date(`${anchorKey}T00:00:00`) : new Date(startPeriod);
+
+            // Generate Day Records
+            daysInMonth.forEach(day => {
+                const dayStr = format(day, 'ddMMyyyy');
+                const dow = getDay(day);
+                const key = format(day, 'yyyy-MM-dd');
+                const dayEntries = entriesByDay.get(key) || [];
+                
+                // Calculate Hours
+                const expectedStart = is12x36 ? '07:00' : '08:00';
+                const expectedMinutes = is12x36
+                  ? (differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0)
+                  : (dow === 0 ? 0 : (dow === 6 ? (hasSaturdayWork ? 240 : 0) : 480));
+                const shouldWork = expectedMinutes > 0;
+
+                const entrada1 = dayEntries.find((e: any) => e.type === 'entrada') || dayEntries[0];
+                const saida2 = dayEntries.find((e: any) => e.type === 'saida') || dayEntries[dayEntries.length - 1];
+                const saida1 = dayEntries.find((e: any) => e.type === 'intervalo') || dayEntries[1];
+                const entrada2 = dayEntries.find((e: any) => e.type === 'retorno') || dayEntries[2];
+
+                let workedMinutes = 0;
+                if (entrada1 && saida2) {
+                    const start = new Date(entrada1.timestamp);
+                    const end = new Date(saida2.timestamp);
+                    const presence = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    let breakMinutes = 0;
+                    if (saida1 && entrada2) {
+                        const b1 = new Date(saida1.timestamp);
+                        const b2 = new Date(entrada2.timestamp);
+                        breakMinutes = Math.max(0, Math.round((b2.getTime() - b1.getTime()) / 60000));
+                    }
+                    workedMinutes = Math.max(0, presence - breakMinutes);
+                }
+
+                const normaisMinutes = shouldWork ? Math.min(workedMinutes, expectedMinutes) : 0;
+                const todayStart = new Date();
+                todayStart.setHours(0,0,0,0);
+                const isPast = day.getTime() < todayStart.getTime();
+                const faltasMinutes = (shouldWork && isPast) ? Math.max(0, expectedMinutes - workedMinutes) : 0;
+                const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
+
+                // Day Record (Registro Tipo 3 - Fictional for structure)
+                // 000000003 + Data + Normais + Extras + Faltas
+                if (shouldWork || workedMinutes > 0) {
+                     const line = `000000003${dayStr}${pad(normaisMinutes, 4)}${pad(extrasMinutes, 4)}${pad(faltasMinutes, 4)}\n`;
+                     content += line;
+                     lineCounter++;
+                }
+            });
+        }
+
+        // TRAILER
+        const trailer = `999999999${pad(lineCounter, 9)}${pad(entries.length, 9)}\n`;
+        content += trailer;
+
         downloadFile(content, `AEJ_${format(new Date(), 'yyyyMMdd')}.txt`);
+
     } catch (error) {
-        console.error(error);
+        console.error("Erro ao gerar AEJ:", error);
         throw error;
     }
 };
