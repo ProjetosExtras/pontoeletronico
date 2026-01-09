@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { EditEntryDialog } from "@/components/dashboard/EditEntryDialog";
+import { CreateEntryDialog } from "@/components/dashboard/CreateEntryDialog";
 import { ImportEntriesDialog } from "@/components/dashboard/ImportEntriesDialog";
 import {
     Select,
@@ -135,7 +136,46 @@ const TimeClock = () => {
             });
         }
 
-        setEntries(uniqueEntries);
+        // If a specific employee and month are selected, fill in missing days
+        if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth) {
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const start = startOfMonth(new Date(year, month - 1));
+            const end = endOfMonth(new Date(year, month - 1));
+            const days = eachDayOfInterval({ start, end });
+            
+            // Get employee name
+            const empName = employees.find(e => e.id === selectedEmployee)?.name || 'Desconhecido';
+
+            const entriesByDate = new Map<string, TimeEntryRow[]>();
+            uniqueEntries.forEach(e => {
+                const dateKey = format(new Date(e.timestamp), 'yyyy-MM-dd');
+                if (!entriesByDate.has(dateKey)) entriesByDate.set(dateKey, []);
+                entriesByDate.get(dateKey)!.push(e);
+            });
+
+            const fullList: TimeEntryRow[] = [];
+            // Sort days descending to match default view
+            days.reverse().forEach(day => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const dayEntries = entriesByDate.get(dateKey);
+
+                if (dayEntries && dayEntries.length > 0) {
+                    fullList.push(...dayEntries);
+                } else {
+                    // Create placeholder entry for empty day
+                    fullList.push({
+                        id: `placeholder-${dateKey}`,
+                        timestamp: `${dateKey}T00:00:00`,
+                        type: 'empty',
+                        employee_id: selectedEmployee,
+                        employees: { name: empName }
+                    });
+                }
+            });
+            setEntries(fullList);
+        } else {
+            setEntries(uniqueEntries);
+        }
     } catch (error) {
         console.error("Error fetching entries:", error);
     } finally {
@@ -150,6 +190,7 @@ const TimeClock = () => {
           case 'intervalo': return 'bg-yellow-500';
           case 'retorno': return 'bg-blue-500';
           case 'abono': return 'bg-purple-500';
+          case 'empty': return 'bg-gray-200 text-gray-500 hover:bg-gray-300';
           default: return 'bg-gray-500';
       }
   };
@@ -227,6 +268,7 @@ const TimeClock = () => {
           <p className="text-muted-foreground">Monitoramento e histórico de marcações.</p>
         </div>
         <div className="flex items-center gap-2">
+            <CreateEntryDialog onSuccess={fetchEntries} preSelectedEmployeeId={selectedEmployee} />
             <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Limpar Importações
@@ -341,35 +383,53 @@ const TimeClock = () => {
                           </TableRow>
                       ) : (
                           entries.map((entry) => (
-                              <TableRow key={entry.id}>
+                              <TableRow key={entry.id} className={entry.type === 'empty' ? 'bg-gray-50/50' : ''}>
                                   <TableCell className="font-medium">{entry.employees?.name || 'Desconhecido'}</TableCell>
                                   <TableCell>
-                                    {format(new Date(entry.timestamp), 'dd/MM/yyyy HH:mm:ss')}
-                                    {entry.justification && (
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Obs: {entry.justification}
-                                        </div>
+                                    {entry.type === 'empty' ? (
+                                      <span className="text-muted-foreground">{format(new Date(entry.timestamp), 'dd/MM/yyyy')} - Sem marcações</span>
+                                    ) : (
+                                      <>
+                                      {format(new Date(entry.timestamp), 'dd/MM/yyyy HH:mm:ss')}
+                                      {entry.justification && (
+                                          <div className="text-xs text-muted-foreground mt-1">
+                                              Obs: {entry.justification}
+                                          </div>
+                                      )}
+                                      </>
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                      <Badge className={getBadgeColor(entry.type)}>{entry.type.toUpperCase()}</Badge>
+                                      <Badge className={getBadgeColor(entry.type)}>
+                                        {entry.type === 'empty' ? 'FALTA/FOLGA' : entry.type.toUpperCase()}
+                                      </Badge>
                                   </TableCell>
                                   <TableCell>
-                                      {entry.location_lat ? 'GPS' : 'IP'}
+                                      {entry.type === 'empty' ? '-' : (entry.location_lat ? 'GPS' : 'IP')}
                                   </TableCell>
                                   <TableCell className="font-mono text-xs">{entry.nsr || '-'}</TableCell>
                                   <TableCell className="text-right">
                                       <div className="flex justify-end gap-2">
-                                          <EditEntryDialog entry={entry} onUpdate={fetchEntries} />
-                                          <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            onClick={() => setEntryToDelete(entry.id)}
-                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                            title="Excluir"
-                                          >
-                                              <Trash2 className="h-4 w-4" />
-                                          </Button>
+                                          {entry.type === 'empty' ? (
+                                            <CreateEntryDialog 
+                                              onSuccess={fetchEntries} 
+                                              preSelectedEmployeeId={selectedEmployee} 
+                                              preSelectedDate={format(new Date(entry.timestamp), 'yyyy-MM-dd')}
+                                            />
+                                          ) : (
+                                            <>
+                                            <EditEntryDialog entry={entry} onUpdate={fetchEntries} />
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              onClick={() => setEntryToDelete(entry.id)}
+                                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                              title="Excluir"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            </>
+                                          )}
                                       </div>
                                   </TableCell>
                               </TableRow>

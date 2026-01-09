@@ -569,8 +569,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     return `${pad(h, 2)}:${pad(m, 2)}`;
                 };
 
+                const hasAbono = dayEntries.some(e => e.type === 'abono');
+
                 const normaisMinutes = shouldWork ? Math.min(workedMinutes, expectedMinutes) : 0;
-                const faltasMinutes = shouldWork && isPast ? Math.max(0, expectedMinutes - workedMinutes) : 0;
+                const faltasMinutes = (shouldWork && isPast && !hasAbono) ? Math.max(0, expectedMinutes - workedMinutes) : 0;
                 const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
 
                 totalNormais += normaisMinutes;
@@ -589,6 +591,29 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 if (atrasoMinutes > 0) obsParts.push(`ATRASO ${formatMinutes(atrasoMinutes)}`);
                 if (!shouldWork && workedMinutes > 0) obsParts.push(`EXTRA ${formatMinutes(workedMinutes)}`);
 
+                // Collect Justifications
+                const justifications = dayEntries
+                    .map(e => e.justification)
+                    .filter(j => j)
+                    .join('; ');
+                if (justifications) obsParts.push(justifications.toUpperCase());
+
+                let timeCells = `
+                    <td>${t1}</td>
+                    <td>${t2}</td>
+                    <td>${t3}</td>
+                    <td>${t4}</td>
+                `;
+
+                if (!hasAnyEntry) {
+                    if (!shouldWork) {
+                        timeCells = `<td colspan="4" style="text-align: center; color: #888; letter-spacing: 2px;">FOLGA</td>`;
+                        if (!obsParts.includes('FOLGA')) obsParts.push('FOLGA');
+                    } else if (isPast) {
+                        if (!obsParts.includes('FALTA')) obsParts.push('FALTA');
+                    }
+                }
+
                 const normais = normaisMinutes > 0 ? formatMinutes(normaisMinutes) : '';
                 const faltas = faltasMinutes > 0 ? formatMinutes(faltasMinutes) : '';
                 const extras = extrasMinutes > 0 ? formatMinutes(extrasMinutes) : '';
@@ -597,14 +622,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 html += `
                     <tr class="${rowClass}">
                         <td class="row-day">${dayStr}</td>
-                        <td>${t1}</td>
-                        <td>${t2}</td>
-                        <td>${t3}</td>
-                        <td>${t4}</td>
+                        ${timeCells}
                         <td>${normais}</td>
                         <td>${faltas}</td>
                         <td>${extras}</td>
-                        <td>${obs}</td>
+                        <td style="font-size: 8px;">${obs}</td>
                     </tr>
                 `;
             });
