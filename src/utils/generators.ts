@@ -192,10 +192,27 @@ export const generateAEJ = async () => {
                 const dayEntries = entriesByDay.get(key) || [];
                 
                 // Calculate Hours
+                const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
                 const expectedStart = is12x36 ? '07:00' : '08:00';
-                const expectedMinutes = is12x36
-                  ? (differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0)
-                  : (dow === 0 ? 0 : (dow === 6 ? (hasSaturdayWork ? 240 : 0) : 480));
+                
+                let expectedMinutes = 0;
+                if (is12x36) {
+                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0;
+                } else {
+                    if (dow === 0) {
+                        expectedMinutes = 0;
+                    } else if (dow === 6) {
+                        if (isSaturdayAlternating) {
+                            // Regra para IDs 2 e 3: Sábado sim/não.
+                            // Se tiver marcação, considera 4h (240min). Se não, folga (0min).
+                            expectedMinutes = dayEntries.length > 0 ? 240 : 0;
+                        } else {
+                            expectedMinutes = hasSaturdayWork ? 240 : 0;
+                        }
+                    } else {
+                        expectedMinutes = 480;
+                    }
+                }
                 const shouldWork = expectedMinutes > 0;
 
                 const entrada1 = dayEntries.find((e: any) => e.type === 'entrada') || dayEntries[0];
@@ -496,10 +513,27 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const hasAnyEntry = dayEntries.length > 0;
                 const isPast = day.getTime() < todayStart.getTime();
 
+                // Calculate Hours
+                const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
                 const expectedStart = is12x36 ? '07:00' : '08:00';
-                const expectedMinutes = is12x36
-                  ? (differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0)
-                  : (dow === 0 ? 0 : (dow === 6 ? (hasSaturdayWork ? 240 : 0) : 480));
+                
+                let expectedMinutes = 0;
+                if (is12x36) {
+                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0;
+                } else {
+                    if (dow === 0) {
+                        expectedMinutes = 0;
+                    } else if (dow === 6) {
+                        if (isSaturdayAlternating) {
+                             // Regra para IDs 2 e 3: Sábado sim/não.
+                             expectedMinutes = dayEntries.length > 0 ? 240 : 0;
+                        } else {
+                            expectedMinutes = hasSaturdayWork ? 240 : 0;
+                        }
+                    } else {
+                        expectedMinutes = 480;
+                    }
+                }
                 const shouldWork = expectedMinutes > 0;
 
                 const rowClass = (!shouldWork && !hasAnyEntry) ? 'weekend' : '';
