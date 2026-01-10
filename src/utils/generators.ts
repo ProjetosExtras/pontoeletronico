@@ -594,6 +594,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                   ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
                   : 0;
                 const atrasoMinutes = atrasoMins > 5 ? atrasoMins : 0;
+                totalAtrasos += atrasoMinutes;
 
                 const obsParts: string[] = [];
                 if (atrasoMinutes > 0) obsParts.push(`ATRASO ${formatMinutes(atrasoMinutes)}`);
