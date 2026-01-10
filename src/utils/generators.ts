@@ -205,9 +205,9 @@ export const generateAEJ = async () => {
                         expectedMinutes = 0;
                     } else if (dow === 6) {
                         if (isSaturdayAlternating) {
-                            // Regra para IDs 2 e 3: Sábado sim/não.
-                            // Se tiver marcação, considera 4h (240min). Se não, folga (0min).
-                            expectedMinutes = dayEntries.length > 0 ? 240 : 0;
+                             // Regra para IDs 2 e 3: Sábado sim/não.
+                             // Se tiver marcação, considera 8h (480min). Se não, folga (0min).
+                             expectedMinutes = dayEntries.length > 0 ? 480 : 0;
                         } else {
                             expectedMinutes = hasSaturdayWork ? 240 : 0;
                         }
@@ -413,6 +413,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const admission = empData.admission_date ? format(new Date(empData.admission_date), 'dd/MM/yyyy') : '-';
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
+            
+            const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
 
             const scheduleLabel = is12x36 ? (isNightShift ? '12X36 NOTURNO' : '12X36') : 'NORMAL';
             const scheduleRows = is12x36
@@ -425,7 +427,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>QUA</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>QUI</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>SEX</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
-                    ...(hasSaturdayWork ? [`<tr><td>SAB</td><td>08:00</td><td>12:00</td><td> - </td><td>12:00</td></tr>`] : []),
+                    ...(hasSaturdayWork ? [
+                        isSaturdayAlternating
+                        ? `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`
+                        : `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td> - </td><td>12:00</td></tr>`
+                    ] : []),
                 ].join('');
 
             // Build HTML for this employee
@@ -564,7 +570,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     } else if (dow === 6) {
                         if (isSaturdayAlternating) {
                              // Regra para IDs 2 e 3: Sábado sim/não.
-                             expectedMinutes = dayEntries.length > 0 ? 240 : 0;
+                             expectedMinutes = dayEntries.length > 0 ? 480 : 0;
                         } else {
                             expectedMinutes = hasSaturdayWork ? 240 : 0;
                         }
