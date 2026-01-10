@@ -35,9 +35,17 @@ import * as z from "zod";
 
 const formSchema = z.object({
   date: z.string().min(1, "Data é obrigatória"),
-  time: z.string().min(1, "Hora é obrigatória"),
+  time: z.string().optional(),
   type: z.string().min(1, "Tipo é obrigatório"),
   justification: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.type !== 'abono' && (!data.time || data.time.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Hora é obrigatória",
+      path: ["time"],
+    });
+  }
 });
 
 type TimeEntry = {
