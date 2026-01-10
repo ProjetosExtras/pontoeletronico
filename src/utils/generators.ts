@@ -505,6 +505,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let totalNormais = 0;
             let totalFaltas = 0;
             let totalExtras = 0;
+            let totalAtrasos = 0;
 
             daysInMonth.forEach(day => {
                 const dayStr = format(day, 'dd/MM/yy - iii', { locale: ptBR });
