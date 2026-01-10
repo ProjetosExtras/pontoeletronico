@@ -544,7 +544,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     const timeStr = format(new Date(e.timestamp), 'HH:mm');
                     return e.is_manual ? `${timeStr}*` : timeStr;
                 };
-                const normalEntries = dayEntries.filter(e => e.type !== 'abono');
+
+                const hasAbono = dayEntries.some(e => e.type === 'abono');
+                // Se houver abono, ignoramos as marcações de horário para não "sujar" o espelho
+                const normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
                 
                 const entrada1 = normalEntries.find((e: TimeEntryRow) => e.type === 'entrada') || normalEntries[0];
                 const saida1 = normalEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || normalEntries[1];
