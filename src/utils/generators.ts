@@ -651,7 +651,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td>${formatMinutes(totalNormais)}</td>
                         <td>${formatMinutes(totalFaltas)}</td>
                         <td>${formatMinutes(totalExtras)}</td>
-                        <td></td>
+                        <td style="font-size: 8px;">${totalAtrasos > 0 ? `ATRASOS: ${formatMinutes(totalAtrasos)}` : ''}</td>
                     </tr>
                     </tbody>
                 </table>
