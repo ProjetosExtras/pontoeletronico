@@ -417,6 +417,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             // Build HTML for this employee
             const container = document.createElement('div');
             container.style.width = '210mm';
+            container.style.boxSizing = 'border-box';
             container.style.padding = '10mm';
             container.style.backgroundColor = 'white';
             container.style.color = 'black';
@@ -427,23 +428,23 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             // Inline Styles for html2canvas
             const styles = `
                 <style>
-                    .wrapper { font-family: 'Arial', sans-serif; font-size: 10px; color: #000; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                    th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
-                    .header-section { display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                    .wrapper { font-family: 'Arial', sans-serif; font-size: 9px; color: #000; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 5px; table-layout: fixed; }
+                    th, td { border: 1px solid #ccc; padding: 2px 3px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+                    .header-section { display: flex; gap: 15px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
                     .info-left { flex: 2; }
                     .info-right { flex: 1; }
                     .info-row { display: flex; border-bottom: 1px solid #ddd; }
-                    .info-label { width: 120px; background-color: #f0f0f0; padding: 2px 5px; font-weight: bold; border-right: 1px solid #ddd; display: flex; align-items: center; }
-                    .info-value { flex: 1; padding: 2px 5px; display: flex; align-items: center; }
-                    .section-title { font-weight: bold; background-color: #e0e0e0; padding: 5px; border: 1px solid #ccc; text-align: center; }
-                    .main-table th { background-color: #333; color: white; text-align: center; font-size: 9px; padding: 6px 2px; }
-                    .main-table td { text-align: center; font-size: 10px; height: 16px; padding: 2px; }
-                    .row-day { background-color: #fff; text-align: left !important; padding-left: 8px !important; font-weight: normal; font-family: 'Courier New', monospace; }
+                    .info-label { width: 100px; background-color: #f0f0f0; padding: 1px 4px; font-weight: bold; border-right: 1px solid #ddd; display: flex; align-items: center; font-size: 9px; }
+                    .info-value { flex: 1; padding: 1px 4px; display: flex; align-items: center; font-size: 9px; }
+                    .section-title { font-weight: bold; background-color: #e0e0e0; padding: 3px; border: 1px solid #ccc; text-align: center; font-size: 10px; }
+                    .main-table th { background-color: #333; color: white; text-align: center; font-size: 8px; padding: 4px 2px; }
+                    .main-table td { text-align: center; font-size: 8px; height: 14px; padding: 2px; }
+                    .row-day { background-color: #fff; text-align: left !important; padding-left: 5px !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                     .weekend { background-color: #f5f5f5; }
                     .totals-row td { background-color: #f0f0f0; font-weight: bold; border-top: 2px solid #000; }
-                    .footer { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; }
-                    .signature-line { border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 5px; font-size: 11px; }
+                    .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+                    .signature-line { border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 5px; font-size: 10px; }
                 </style>
             `;
 
@@ -488,15 +489,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 <table class="main-table">
                     <thead>
                         <tr>
-                            <th style="width: 140px; text-align: left; padding-left: 10px;">DIA</th>
-                            <th>ENT. 1</th>
-                            <th>SAÍ. 1</th>
-                            <th>ENT. 2</th>
-                            <th>SAÍ. 2</th>
-                            <th>NORMAIS</th>
-                            <th>FALTAS</th>
-                            <th>EXTRAS</th>
-                            <th>OBS</th>
+                            <th width="15%">DATA</th>
+                            <th width="7%">ENT. 1</th>
+                            <th width="7%">SAÍ. 1</th>
+                            <th width="7%">ENT. 2</th>
+                            <th width="7%">SAÍ. 2</th>
+                            <th width="9%">NORMAIS</th>
+                            <th width="9%">FALTAS</th>
+                            <th width="9%">EXTRAS</th>
+                            <th width="9%">AD. NOT</th>
+                            <th width="21%">OBS</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -506,6 +508,22 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let totalFaltas = 0;
             let totalExtras = 0;
             let totalAtrasos = 0;
+            let totalAdicionalNoturno = 0;
+
+            const calculateNightMinutes = (start: Date, end: Date): number => {
+                let minutes = 0;
+                const current = new Date(start.getTime());
+                const endTime = end.getTime();
+                
+                while (current.getTime() < endTime) {
+                    const h = current.getHours();
+                    if (h >= 22 || h < 5) {
+                        minutes++;
+                    }
+                    current.setMinutes(current.getMinutes() + 1);
+                }
+                return minutes;
+            };
 
             daysInMonth.forEach(day => {
                 const dayStr = format(day, 'dd/MM/yy - iii', { locale: ptBR });
@@ -561,15 +579,37 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const t4 = fmt(saida2);
 
                 let workedMinutes = 0;
+                let nightMinutes = 0;
+
                 if (entrada1 && saida2) {
                     const start = new Date(entrada1.timestamp);
                     const end = new Date(saida2.timestamp);
                     const presence = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    
+                    // Night Shift Calc for first block
+                    let firstBlockEnd = end;
+                    if (saida1) {
+                        firstBlockEnd = new Date(saida1.timestamp);
+                    }
+                    nightMinutes += calculateNightMinutes(start, firstBlockEnd);
+
                     let breakMinutes = 0;
                     if (saida1 && entrada2) {
                         const b1 = new Date(saida1.timestamp);
                         const b2 = new Date(entrada2.timestamp);
                         breakMinutes = Math.max(0, Math.round((b2.getTime() - b1.getTime()) / 60000));
+                        
+                        // Night Shift Calc for second block
+                        nightMinutes += calculateNightMinutes(b2, end);
+                    } else {
+                         // If no break, we already calculated the whole block above?
+                         // Wait, if no saida1, firstBlockEnd is end. Correct.
+                         // But if saida1 exists but no entrada2 (incomplete break?), logic above handles first block.
+                         // If saida1 exists AND entrada2 exists, we have two blocks.
+                         // The logic: 
+                         // Block 1: start -> saida1 (or end if no saida1)
+                         // Block 2: entrada2 -> end
+                         // If saida1 is missing, it's just start -> end.
                     }
                     workedMinutes = Math.max(0, presence - breakMinutes);
                 }
@@ -587,6 +627,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 totalNormais += normaisMinutes;
                 totalFaltas += faltasMinutes;
                 totalExtras += extrasMinutes;
+                totalAdicionalNoturno += nightMinutes;
+
 
                 const expectedStartDate = new Date(day);
                 const [eh, em] = expectedStart.split(':').map(Number);
@@ -627,6 +669,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const normais = normaisMinutes > 0 ? formatMinutes(normaisMinutes) : '';
                 const faltas = faltasMinutes > 0 ? formatMinutes(faltasMinutes) : '';
                 const extras = extrasMinutes > 0 ? formatMinutes(extrasMinutes) : '';
+                const adNot = nightMinutes > 0 ? formatMinutes(nightMinutes) : '';
                 const obs = obsParts.join(' | ');
 
                 html += `
@@ -636,6 +679,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td>${normais}</td>
                         <td>${faltas}</td>
                         <td>${extras}</td>
+                        <td>${adNot}</td>
                         <td style="font-size: 8px;">${obs}</td>
                     </tr>
                 `;
@@ -653,6 +697,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td>${formatMinutes(totalNormais)}</td>
                         <td>${formatMinutes(totalFaltas)}</td>
                         <td>${formatMinutes(totalExtras)}</td>
+                        <td>${formatMinutes(totalAdicionalNoturno)}</td>
                         <td style="font-size: 8px;">${totalAtrasos > 0 ? `ATRASOS: ${formatMinutes(totalAtrasos)}` : ''}</td>
                     </tr>
                     </tbody>
