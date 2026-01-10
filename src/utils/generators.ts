@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInCalendarDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInCalendarDays, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -23,6 +23,7 @@ type EmployeeRow = {
 };
 
 type TimeEntryRow = {
+    id: string; // Added ID for consumption tracking
     timestamp: string;
     type?: string | null;
     nsr?: number | null;
@@ -372,12 +373,15 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             // Determine Shift Type
             let is12x36 = false;
+            let isNightShift = false;
+
             if (shiftTypeOverride === '12x36') {
                 is12x36 = true;
             } else if (shiftTypeOverride === 'standard') {
                 is12x36 = false;
             } else if (empData.shift_type) {
-                is12x36 = empData.shift_type === '12x36';
+                is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
+                isNightShift = empData.shift_type === '12x36_noturno';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -390,6 +394,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const anchorKey = workedDayKeys[0];
             const anchorDay = anchorKey ? new Date(`${anchorKey}T00:00:00`) : new Date(startPeriod);
+            const consumedEntryIds = new Set<string>();
 
             // Info Rows Helper
             const renderInfoRow = (label: string, value: string) => `
@@ -402,9 +407,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             const admission = empData.admission_date ? format(new Date(empData.admission_date), 'dd/MM/yyyy') : '-';
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
 
-            const scheduleLabel = is12x36 ? '12X36' : 'NORMAL';
+            const scheduleLabel = is12x36 ? (isNightShift ? '12X36 NOTURNO' : '12X36') : 'NORMAL';
             const scheduleRows = is12x36
-              ? `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`
+              ? (isNightShift 
+                 ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
+                 : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`)
               : [
                     `<tr><td>SEG</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>TER</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
@@ -529,13 +536,17 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const dayStr = format(day, 'dd/MM/yy - iii', { locale: ptBR });
                 const dow = getDay(day);
                 const key = format(day, 'yyyy-MM-dd');
-                const dayEntries = entriesByDay.get(key) || [];
+                
+                // Get entries and filter consumed ones
+                let dayEntries = entriesByDay.get(key) || [];
+                dayEntries = dayEntries.filter(e => !consumedEntryIds.has(e.id));
+                
                 const hasAnyEntry = dayEntries.length > 0;
                 const isPast = day.getTime() < todayStart.getTime();
 
                 // Calculate Hours
                 const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
-                const expectedStart = is12x36 ? '07:00' : '08:00';
+                const expectedStart = is12x36 ? (isNightShift ? '19:00' : '07:00') : '08:00';
                 
                 let expectedMinutes = 0;
                 if (is12x36) {
@@ -567,6 +578,26 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const hasAbono = dayEntries.some(e => e.type === 'abono');
                 // Se houver abono, ignoramos as marcações de horário para não "sujar" o espelho
                 const normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
+
+                // Night Shift Lookahead Logic
+                if (isNightShift && normalEntries.length > 0) {
+                    const nextDay = addDays(day, 1);
+                    const nextKey = format(nextDay, 'yyyy-MM-dd');
+                    const nextDayEntries = entriesByDay.get(nextKey) || [];
+                    
+                    // Take entries from next day that are before 14:00 (2 PM)
+                    // This covers the end of a night shift (07:00) plus potential overtime
+                    const nextDayShiftEntries = nextDayEntries.filter(e => {
+                        const h = new Date(e.timestamp).getHours();
+                        return h < 14 && !consumedEntryIds.has(e.id);
+                    });
+
+                    if (nextDayShiftEntries.length > 0) {
+                        nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
+                        normalEntries.push(...nextDayShiftEntries);
+                        normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                    }
+                }
                 
                 const entrada1 = normalEntries.find((e: TimeEntryRow) => e.type === 'entrada') || normalEntries[0];
                 const saida1 = normalEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || normalEntries[1];

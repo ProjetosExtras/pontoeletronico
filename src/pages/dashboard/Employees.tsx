@@ -28,7 +28,7 @@ type Employee = {
   job_title?: string | null;
   admission_date?: string | null;
   pin?: string | null;
-  shift_type?: '12x36' | 'standard';
+  shift_type?: '12x36' | 'standard' | '12x36_noturno';
 };
 
 const Employees = () => {
@@ -176,6 +176,8 @@ const Employees = () => {
                     <TableCell>
                         {employee.shift_type === '12x36' ? (
                             <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">12x36</Badge>
+                        ) : employee.shift_type === '12x36_noturno' ? (
+                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">12x36 Noturno</Badge>
                         ) : (
                             <Badge variant="outline">Normal</Badge>
                         )}
