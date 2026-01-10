@@ -298,7 +298,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
          let query = supabase
              .from('time_entries')
-             .select('*, employees(name, pis, code, cpf, admission_date, job_title)')
+             .select('*, employees(name, pis, code, cpf, admission_date, job_title, shift_type)')
              .eq('company_id', profile.company_id)
              .gte('timestamp', startPeriod.toISOString())
              .lte('timestamp', endPeriod.toISOString())
@@ -375,10 +375,17 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let is12x36 = false;
             let isNightShift = false;
 
-            if (shiftTypeOverride === '12x36') {
-                is12x36 = true;
-            } else if (shiftTypeOverride === 'standard') {
-                is12x36 = false;
+            if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
+                if (shiftTypeOverride === '12x36') {
+                    is12x36 = true;
+                    isNightShift = false;
+                } else if (shiftTypeOverride === '12x36_noturno') {
+                    is12x36 = true;
+                    isNightShift = true;
+                } else if (shiftTypeOverride === 'standard') {
+                    is12x36 = false;
+                    isNightShift = false;
+                }
             } else if (empData.shift_type) {
                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
                 isNightShift = empData.shift_type === '12x36_noturno';

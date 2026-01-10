@@ -39,6 +39,19 @@ export function EspelhoPontoDialog() {
         }
     }, [open]);
 
+    useEffect(() => {
+        if (selectedEmployee && selectedEmployee !== 'all') {
+            const emp = employees.find(e => e.id === selectedEmployee);
+            if (emp && emp.shift_type) {
+                setShiftType(emp.shift_type);
+            } else {
+                setShiftType('standard');
+            }
+        } else if (selectedEmployee === 'all') {
+             setShiftType('auto');
+        }
+    }, [selectedEmployee, employees]);
+
     const fetchEmployees = async () => {
         setFetchingEmployees(true);
         try {
@@ -48,7 +61,7 @@ export function EspelhoPontoDialog() {
             if (profile?.company_id) {
                 const { data } = await supabase
                     .from('employees')
-                    .select('id, name, code')
+                    .select('id, name, code, shift_type')
                     .eq('company_id', profile.company_id)
                     .order('name');
                 setEmployees(data || []);
@@ -141,6 +154,7 @@ export function EspelhoPontoDialog() {
                         <SelectItem value="auto">Automático (Usar Cadastro)</SelectItem>
                         <SelectItem value="standard">Normal (Seg-Sex)</SelectItem>
                         <SelectItem value="12x36">12x36</SelectItem>
+                        <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
