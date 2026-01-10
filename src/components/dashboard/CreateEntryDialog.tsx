@@ -119,7 +119,8 @@ export function CreateEntryDialog({ onSuccess, preSelectedEmployeeId, preSelecte
           type: values.type,
           justification: values.justification,
           nsr: nextNsr,
-          device_info: "Manual Web"
+          device_info: "Manual Web",
+          is_manual: true
         });
 
       if (error) throw error;

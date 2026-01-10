@@ -76,6 +76,7 @@ export function EditEntryDialog({ entry, onUpdate }: EditEntryDialogProps) {
           timestamp: newTimestamp,
           type: values.type,
           justification: values.justification,
+          is_manual: true,
         })
         .eq("id", entry.id);
 

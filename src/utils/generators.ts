@@ -28,6 +28,7 @@ type TimeEntryRow = {
     nsr?: number | null;
     employee_id?: string | null;
     employees?: EmployeeRow | null;
+    is_manual?: boolean | null;
 };
 
 export const generateAFD = async () => {
@@ -538,7 +539,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 const rowClass = (!shouldWork && !hasAnyEntry) ? 'weekend' : '';
                 
-                const fmt = (e: TimeEntryRow | undefined) => e ? format(new Date(e.timestamp), 'HH:mm') : '';
+                const fmt = (e: TimeEntryRow | undefined) => {
+                    if (!e) return '';
+                    const timeStr = format(new Date(e.timestamp), 'HH:mm');
+                    return e.is_manual ? `${timeStr}*` : timeStr;
+                };
                 const entrada1 = dayEntries.find((e: TimeEntryRow) => e.type === 'entrada') || dayEntries[0];
                 const saida1 = dayEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || dayEntries[1];
                 const entrada2 = dayEntries.find((e: TimeEntryRow) => e.type === 'retorno') || dayEntries[2];
