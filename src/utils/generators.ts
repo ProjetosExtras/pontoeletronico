@@ -576,8 +576,6 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     return `${pad(h, 2)}:${pad(m, 2)}`;
                 };
 
-                const hasAbono = dayEntries.some(e => e.type === 'abono');
-
                 const normaisMinutes = shouldWork ? Math.min(workedMinutes, expectedMinutes) : 0;
                 const faltasMinutes = (shouldWork && isPast && !hasAbono) ? Math.max(0, expectedMinutes - workedMinutes) : 0;
                 const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
