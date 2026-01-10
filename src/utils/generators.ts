@@ -416,6 +416,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             
             const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
 
+            // Calculate sheet number based on month
+            const sheetNumber = pad(startPeriod.getMonth() + 1, 3);
+
             const scheduleLabel = is12x36 ? (isNightShift ? '12X36 NOTURNO' : '12X36') : 'NORMAL';
             const scheduleRows = is12x36
               ? (isNightShift 
@@ -475,10 +478,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         ${renderInfoRow("Empresa", company.name.toUpperCase())}
                         ${renderInfoRow("CNPJ", company.cnpj)}
                         ${renderInfoRow("Inscrição Est.", company.state_registration || "ISENTO")} 
+                        ${renderInfoRow("Período", `${format(startPeriod, 'dd/MM/yyyy')} a ${format(endPeriod, 'dd/MM/yyyy')}`)}
                         ${renderInfoRow("Nome", `<strong style="font-size: 12px;">${empName.toUpperCase()}</strong>`)}
                         <div class="info-row">
                             <div class="info-label">Nº Folha</div>
-                            <div class="info-value">001</div>
+                            <div class="info-value">${sheetNumber}</div>
                             <div class="info-label" style="width: 50px;">CPF</div>
                             <div class="info-value">${empData.cpf || '000.000.000-00'}</div>
                         </div>
