@@ -415,6 +415,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
             
             const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
+            const isSaturdayMorning = String(empData.code || '') === '6';
 
             // Calculate sheet number based on month
             const sheetNumber = pad(startPeriod.getMonth() + 1, 3);
@@ -430,7 +431,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>QUA</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>QUI</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>SEX</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
-                    ...(hasSaturdayWork ? [
+                    ...(hasSaturdayWork || isSaturdayMorning ? [
                         isSaturdayAlternating
                         ? `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`
                         : `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td> - </td><td>12:00</td></tr>`
@@ -563,6 +564,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 // Calculate Hours
                 const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
+                const isSaturdayMorning = String(empData.code || '') === '6';
                 const expectedStart = is12x36 ? (isNightShift ? '19:00' : '07:00') : '08:00';
                 
                 let expectedMinutes = 0;
@@ -575,6 +577,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         if (isSaturdayAlternating) {
                              // Regra para IDs 2 e 3: Sábado sim/não.
                              expectedMinutes = dayEntries.length > 0 ? 480 : 0;
+                        } else if (isSaturdayMorning) {
+                            expectedMinutes = 240; // 4 horas
                         } else {
                             expectedMinutes = hasSaturdayWork ? 240 : 0;
                         }
@@ -616,10 +620,30 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     }
                 }
                 
-                const entrada1 = normalEntries.find((e: TimeEntryRow) => e.type === 'entrada') || normalEntries[0];
-                const saida1 = normalEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || normalEntries[1];
-                const entrada2 = normalEntries.find((e: TimeEntryRow) => e.type === 'retorno') || normalEntries[2];
-                const saida2 = normalEntries.find((e: TimeEntryRow) => e.type === 'saida') || normalEntries[normalEntries.length - 1];
+                // Assignment Logic: Types first, then remaining slots
+                const usedIds = new Set<string>();
+                
+                // 1. Try assign by type
+                let entrada1 = normalEntries.find(e => e.type === 'entrada');
+                if (entrada1) usedIds.add(entrada1.id);
+                
+                let saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
+                if (saida1) usedIds.add(saida1.id);
+                
+                let entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
+                if (entrada2) usedIds.add(entrada2.id);
+                
+                let saida2 = normalEntries.find(e => e.type === 'saida' && !usedIds.has(e.id));
+                if (saida2) usedIds.add(saida2.id);
+                
+                // 2. Fill gaps with unused entries strictly by order
+                const unusedEntries = normalEntries.filter(e => !usedIds.has(e.id));
+                let unusedIdx = 0;
+                
+                if (!entrada1 && unusedIdx < unusedEntries.length) entrada1 = unusedEntries[unusedIdx++];
+                if (!saida1 && unusedIdx < unusedEntries.length) saida1 = unusedEntries[unusedIdx++];
+                if (!entrada2 && unusedIdx < unusedEntries.length) entrada2 = unusedEntries[unusedIdx++];
+                if (!saida2 && unusedIdx < unusedEntries.length) saida2 = unusedEntries[unusedIdx++];
 
                 const t1 = fmt(entrada1);
                 const t2 = fmt(saida1);
@@ -629,37 +653,28 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let workedMinutes = 0;
                 let nightMinutes = 0;
 
-                if (entrada1 && saida2) {
+                // Calculate Pair 1
+                if (entrada1 && saida1) {
+                    const start = new Date(entrada1.timestamp);
+                    const end = new Date(saida1.timestamp);
+                    workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    nightMinutes += calculateNightMinutes(start, end);
+                }
+
+                // Calculate Pair 2
+                if (entrada2 && saida2) {
+                    const start = new Date(entrada2.timestamp);
+                    const end = new Date(saida2.timestamp);
+                    workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    nightMinutes += calculateNightMinutes(start, end);
+                }
+
+                // Fallback for Continuous Shift (e1 -> s2) only if inner punches are missing
+                if (entrada1 && saida2 && !saida1 && !entrada2) {
                     const start = new Date(entrada1.timestamp);
                     const end = new Date(saida2.timestamp);
-                    const presence = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-                    
-                    // Night Shift Calc for first block
-                    let firstBlockEnd = end;
-                    if (saida1) {
-                        firstBlockEnd = new Date(saida1.timestamp);
-                    }
-                    nightMinutes += calculateNightMinutes(start, firstBlockEnd);
-
-                    let breakMinutes = 0;
-                    if (saida1 && entrada2) {
-                        const b1 = new Date(saida1.timestamp);
-                        const b2 = new Date(entrada2.timestamp);
-                        breakMinutes = Math.max(0, Math.round((b2.getTime() - b1.getTime()) / 60000));
-                        
-                        // Night Shift Calc for second block
-                        nightMinutes += calculateNightMinutes(b2, end);
-                    } else {
-                         // If no break, we already calculated the whole block above?
-                         // Wait, if no saida1, firstBlockEnd is end. Correct.
-                         // But if saida1 exists but no entrada2 (incomplete break?), logic above handles first block.
-                         // If saida1 exists AND entrada2 exists, we have two blocks.
-                         // The logic: 
-                         // Block 1: start -> saida1 (or end if no saida1)
-                         // Block 2: entrada2 -> end
-                         // If saida1 is missing, it's just start -> end.
-                    }
-                    workedMinutes = Math.max(0, presence - breakMinutes);
+                    workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                    nightMinutes += calculateNightMinutes(start, end);
                 }
 
                 const formatMinutes = (mins: number) => {
