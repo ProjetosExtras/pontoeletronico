@@ -45,6 +45,7 @@ type TimeEntryRow = {
   employees?: { name?: string | null } | null;
   justification?: string | null;
   employee_id?: string;
+  is_manual?: boolean;
 };
 
 const TimeClock = () => {
