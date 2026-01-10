@@ -68,7 +68,8 @@ export function EditEntryDialog({ entry, onUpdate }: EditEntryDialogProps) {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const newTimestamp = new Date(`${values.date}T${values.time}:00`).toISOString();
+      const timeStr = values.time || "00:00";
+      const newTimestamp = new Date(`${values.date}T${timeStr}:00`).toISOString();
 
       const { error } = await supabase
         .from("time_entries")

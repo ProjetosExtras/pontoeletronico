@@ -544,10 +544,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     const timeStr = format(new Date(e.timestamp), 'HH:mm');
                     return e.is_manual ? `${timeStr}*` : timeStr;
                 };
-                const entrada1 = dayEntries.find((e: TimeEntryRow) => e.type === 'entrada') || dayEntries[0];
-                const saida1 = dayEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || dayEntries[1];
-                const entrada2 = dayEntries.find((e: TimeEntryRow) => e.type === 'retorno') || dayEntries[2];
-                const saida2 = dayEntries.find((e: TimeEntryRow) => e.type === 'saida') || dayEntries[dayEntries.length - 1];
+                const normalEntries = dayEntries.filter(e => e.type !== 'abono');
+                
+                const entrada1 = normalEntries.find((e: TimeEntryRow) => e.type === 'entrada') || normalEntries[0];
+                const saida1 = normalEntries.find((e: TimeEntryRow) => e.type === 'intervalo') || normalEntries[1];
+                const entrada2 = normalEntries.find((e: TimeEntryRow) => e.type === 'retorno') || normalEntries[2];
+                const saida2 = normalEntries.find((e: TimeEntryRow) => e.type === 'saida') || normalEntries[normalEntries.length - 1];
 
                 const t1 = fmt(entrada1);
                 const t2 = fmt(saida1);

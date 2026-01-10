@@ -108,7 +108,8 @@ export function CreateEntryDialog({ onSuccess, preSelectedEmployeeId, preSelecte
         .single();
       
       const nextNsr = (lastEntry?.nsr || 0) + 1;
-      const timestamp = new Date(`${values.date}T${values.time}:00`).toISOString();
+      const timeStr = values.time || "00:00";
+      const timestamp = new Date(`${values.date}T${timeStr}:00`).toISOString();
 
       const { error } = await supabase
         .from("time_entries")
