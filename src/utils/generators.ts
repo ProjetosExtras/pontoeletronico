@@ -414,18 +414,36 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             const admission = empData.admission_date ? format(new Date(empData.admission_date), 'dd/MM/yyyy') : '-';
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
             
-            const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
-            const isSaturdayMorning = String(empData.code || '') === '6';
+            const empCode = String(empData.code || '');
+            const isId3 = empCode === '3';
+            const isId2 = empCode === '2';
+            const isSaturdayAlternating = isId2 || isId3;
+            const isSaturdayMorning = empCode === '6';
 
             // Calculate sheet number based on month
             const sheetNumber = pad(startPeriod.getMonth() + 1, 3);
 
             const scheduleLabel = is12x36 ? (isNightShift ? '12X36 NOTURNO' : '12X36') : 'NORMAL';
-            const scheduleRows = is12x36
-              ? (isNightShift 
+            
+            let scheduleRows = '';
+            if (is12x36) {
+                 scheduleRows = isNightShift 
                  ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
-                 : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`)
-              : [
+                 : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
+            } else if (isId3) {
+                 // ID 3: 09:00 - 18:00 (Assuming 13:00-14:00 break)
+                 scheduleRows = [
+                    `<tr><td>SEG</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
+                    `<tr><td>TER</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
+                    `<tr><td>QUA</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
+                    `<tr><td>QUI</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
+                    `<tr><td>SEX</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
+                    ...(hasSaturdayWork ? [
+                        `<tr><td>SAB</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`
+                    ] : [])
+                 ].join('');
+            } else {
+                 scheduleRows = [
                     `<tr><td>SEG</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>TER</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
                     `<tr><td>QUA</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`,
@@ -437,6 +455,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         : `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td> - </td><td>12:00</td></tr>`
                     ] : []),
                 ].join('');
+            }
 
             // Build HTML for this employee
             const container = document.createElement('div');
@@ -563,9 +582,18 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const isPast = day.getTime() < todayStart.getTime();
 
                 // Calculate Hours
-                const isSaturdayAlternating = ['2', '3'].includes(String(empData.code || ''));
-                const isSaturdayMorning = String(empData.code || '') === '6';
-                const expectedStart = is12x36 ? (isNightShift ? '19:00' : '07:00') : '08:00';
+                const empCode = String(empData.code || '');
+                const isId3 = empCode === '3';
+                const isId2 = empCode === '2';
+                const isSaturdayAlternating = isId2 || isId3;
+                const isSaturdayMorning = empCode === '6';
+
+                let expectedStart = '08:00';
+                if (is12x36) {
+                    expectedStart = isNightShift ? '19:00' : '07:00';
+                } else if (isId3) {
+                    expectedStart = '09:00';
+                }
                 
                 let expectedMinutes = 0;
                 if (is12x36) {
