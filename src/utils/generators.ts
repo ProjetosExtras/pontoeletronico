@@ -428,7 +428,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let scheduleRows = '';
             if (is12x36) {
                  scheduleRows = isNightShift 
-                 ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
+                 ? `<tr><td>ESC</td><td>18:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
             } else if (isId3) {
                  // ID 3: 09:00 - 18:00 (Assuming 13:00-14:00 break)
@@ -585,13 +585,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const empCode = String(empData.code || '');
                 const isId3 = empCode === '3';
                 const isId2 = empCode === '2';
-                const isId14 = empCode === '14';
                 const isSaturdayAlternating = isId2 || isId3;
                 const isSaturdayMorning = empCode === '6';
 
                 let expectedStart = '08:00';
                 if (is12x36) {
-                    expectedStart = isNightShift ? (isId14 ? '18:00' : '19:00') : '07:00';
+                    expectedStart = isNightShift ? '18:00' : '07:00';
                 } else if (isId3) {
                     expectedStart = '09:00';
                 }
