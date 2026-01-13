@@ -76,10 +76,18 @@ export function EditEntryDialog({ entry, onUpdate }: EditEntryDialogProps) {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+
+      if (!profile?.company_id) {
+         toast.error("Erro de permissão: Empresa não encontrada.");
+         return;
+      }
+
       const timeStr = values.time || "00:00";
       const newTimestamp = new Date(`${values.date}T${timeStr}:00`).toISOString();
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("time_entries")
         .update({
           timestamp: newTimestamp,
@@ -87,9 +95,15 @@ export function EditEntryDialog({ entry, onUpdate }: EditEntryDialogProps) {
           justification: values.justification,
           is_manual: true,
         })
-        .eq("id", entry.id);
+        .eq("id", entry.id)
+        .eq("company_id", profile.company_id) // Ensure we only update within company
+        .select();
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error("Nenhum registro atualizado. Verifique as permissões.");
+      }
 
       toast.success("Marcação atualizada com sucesso!");
       setOpen(false);

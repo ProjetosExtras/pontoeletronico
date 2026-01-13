@@ -98,7 +98,8 @@ const TimeClock = () => {
                 employees ( name )
             `)
             .eq('company_id', profile.company_id)
-            .order('timestamp', { ascending: false });
+            .order('timestamp', { ascending: false })
+            .order('created_at', { ascending: false }); // Secondary sort for stability
 
         // Filter by Employee
         if (selectedEmployee && selectedEmployee !== 'all') {
