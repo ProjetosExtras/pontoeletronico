@@ -199,7 +199,7 @@ export const generateAEJ = async () => {
                 
                 let expectedMinutes = 0;
                 if (is12x36) {
-                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0;
+                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 660 : 0;
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
@@ -428,7 +428,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let scheduleRows = '';
             if (is12x36) {
                  scheduleRows = isNightShift 
-                 ? `<tr><td>ESC</td><td>18:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
+                 ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
             } else if (isId3) {
                  // ID 3: 09:00 - 18:00 (Assuming 13:00-14:00 break)
@@ -590,14 +590,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 let expectedStart = '08:00';
                 if (is12x36) {
-                    expectedStart = isNightShift ? '18:00' : '07:00';
+                    expectedStart = isNightShift ? '19:00' : '07:00';
                 } else if (isId3) {
                     expectedStart = '09:00';
                 }
                 
                 let expectedMinutes = 0;
                 if (is12x36) {
-                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 720 : 0;
+                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 660 : 0;
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
