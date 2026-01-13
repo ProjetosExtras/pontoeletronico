@@ -645,9 +645,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     if (nextDayShiftEntries.length > 0) {
                         nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
                         normalEntries.push(...nextDayShiftEntries);
-                        normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                     }
                 }
+
+                // Deduplicate normalEntries by timestamp
+                const uniqueMap = new Map();
+                normalEntries.forEach(e => uniqueMap.set(new Date(e.timestamp).getTime(), e));
+                normalEntries = Array.from(uniqueMap.values());
+                normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                 
                 // Assignment Logic: Types first, then remaining slots
                 const usedIds = new Set<string>();
@@ -665,14 +670,34 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let saida2 = normalEntries.find(e => e.type === 'saida' && !usedIds.has(e.id));
                 if (saida2) usedIds.add(saida2.id);
                 
-                // 2. Fill gaps with unused entries strictly by order
+                // 2. Fill gaps with unused entries respecting chronological order
                 const unusedEntries = normalEntries.filter(e => !usedIds.has(e.id));
-                let unusedIdx = 0;
                 
-                if (!entrada1 && unusedIdx < unusedEntries.length) entrada1 = unusedEntries[unusedIdx++];
-                if (!saida1 && unusedIdx < unusedEntries.length) saida1 = unusedEntries[unusedIdx++];
-                if (!entrada2 && unusedIdx < unusedEntries.length) entrada2 = unusedEntries[unusedIdx++];
-                if (!saida2 && unusedIdx < unusedEntries.length) saida2 = unusedEntries[unusedIdx++];
+                const consumeNextUnused = (afterTime?: number) => {
+                    const idx = unusedEntries.findIndex(e => {
+                        if (!afterTime) return true;
+                        return new Date(e.timestamp).getTime() > afterTime;
+                    });
+                    
+                    if (idx !== -1) {
+                        const entry = unusedEntries[idx];
+                        unusedEntries.splice(idx, 1); // Remove from unused
+                        usedIds.add(entry.id);
+                        return entry;
+                    }
+                    return undefined;
+                };
+
+                if (!entrada1) entrada1 = consumeNextUnused();
+                
+                const t1Time = entrada1 ? new Date(entrada1.timestamp).getTime() : 0;
+                if (!saida1) saida1 = consumeNextUnused(t1Time);
+                
+                const t2Time = saida1 ? new Date(saida1.timestamp).getTime() : t1Time;
+                if (!entrada2) entrada2 = consumeNextUnused(t2Time);
+                
+                const t3Time = entrada2 ? new Date(entrada2.timestamp).getTime() : t2Time;
+                if (!saida2) saida2 = consumeNextUnused(t3Time);
 
                 const t1 = fmt(entrada1);
                 const t2 = fmt(saida1);
