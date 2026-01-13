@@ -34,7 +34,14 @@ type Employee = {
 const Employees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
+  const filteredEmployees = employees.filter(employee => 
+    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.code && employee.code.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -141,6 +148,8 @@ const Employees = () => {
               type="search"
               placeholder="Buscar por nome ou matrícula..."
               className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
       </div>
@@ -162,12 +171,12 @@ const Employees = () => {
                 <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">Carregando...</TableCell>
                 </TableRow>
-            ) : employees.length === 0 ? (
+            ) : filteredEmployees.length === 0 ? (
                 <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum funcionário encontrado.</TableCell>
                 </TableRow>
             ) : (
-                employees.map((employee) => (
+                filteredEmployees.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.code}</TableCell>
