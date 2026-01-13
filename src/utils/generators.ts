@@ -627,7 +627,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 const hasAbono = dayEntries.some(e => e.type === 'abono');
                 // Se houver abono, ignoramos as marcações de horário para não "sujar" o espelho
-                const normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
+                let normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
 
                 // Night Shift Lookahead Logic
                 if (isNightShift && normalEntries.length > 0) {
