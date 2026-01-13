@@ -411,7 +411,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 </div>
             `;
 
-            const admission = empData.admission_date ? format(new Date(empData.admission_date), 'dd/MM/yyyy') : '-';
+            const admission = empData.admission_date ? String(empData.admission_date).split('T')[0].split('-').reverse().join('/') : '-';
              const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
             
             const empCode = String(empData.code || '');
