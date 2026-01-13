@@ -585,12 +585,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const empCode = String(empData.code || '');
                 const isId3 = empCode === '3';
                 const isId2 = empCode === '2';
+                const isId14 = empCode === '14';
                 const isSaturdayAlternating = isId2 || isId3;
                 const isSaturdayMorning = empCode === '6';
 
                 let expectedStart = '08:00';
                 if (is12x36) {
-                    expectedStart = isNightShift ? '19:00' : '07:00';
+                    expectedStart = isNightShift ? (isId14 ? '18:00' : '19:00') : '07:00';
                 } else if (isId3) {
                     expectedStart = '09:00';
                 }
