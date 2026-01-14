@@ -349,9 +349,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             const empEntries = empObj.entries as TimeEntryRow[];
             const empCode = String(empData.code || '').trim();
             const isId3 = empCode === '3';
-            const isId3 = empCode === '3';
             const isId2 = empCode === '2';
             const isId30 = empCode === '30';
+            const isId21 = empCode === '21';
             const isSaturdayMorning = empCode === '6';
             const isSaturdayAlternating = isId2 || isId3;
 
@@ -632,7 +632,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 }
                 
                 let expectedMinutes = 0;
-                if (is12x36) {
+                if (isId21) {
+                    // ID 21: Mon-Thu (480), Fri (240), Sat (480), Sun (0)
+                    if (dow >= 1 && dow <= 4) expectedMinutes = 480; // Seg-Qui
+                    else if (dow === 5) expectedMinutes = 240; // Sex
+                    else if (dow === 6) expectedMinutes = 480; // Sab
+                    else expectedMinutes = 0; // Dom
+                } else if (is12x36) {
                     expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
                 } else if (is3hMorning) {
                     expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
