@@ -310,6 +310,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                       <SelectItem value="standard">Padrão (Seg-Sex)</SelectItem>
                       <SelectItem value="12x36">12x36 (Diurno)</SelectItem>
                       <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
+                      <SelectItem value="standard_09_18">Padrão (09:00-18:00)</SelectItem>
                       <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
                     </SelectContent>
                   </Select>
