@@ -274,14 +274,33 @@ const TimeClock = () => {
   const handleDeleteEntry = async () => {
     if (!entryToDelete) return;
     try {
-        const { error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('company_id')
+            .eq('id', user?.id)
+            .single();
+
+        if (!profile?.company_id) {
+            toast.error("Empresa não encontrada para este usuário.");
+            return;
+        }
+
+        const { data, error } = await supabase
             .from('time_entries')
             .delete()
-            .eq('id', entryToDelete);
+            .eq('id', entryToDelete)
+            .eq('company_id', profile.company_id)
+            .select();
 
         if (error) throw error;
-        
-        toast.success("Registro excluído com sucesso!");
+
+        if (!data || data.length === 0) {
+            toast.warning("Nenhum registro foi excluído. Verifique se o registro ainda existe.");
+        } else {
+            toast.success("Registro excluído com sucesso!");
+        }
+
         fetchEntries();
     } catch (error) {
         console.error("Error deleting entry:", error);
