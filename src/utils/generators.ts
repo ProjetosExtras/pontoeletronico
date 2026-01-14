@@ -766,7 +766,20 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
 
                 // Night Shift Lookahead Logic
-                if (isNightShift && normalEntries.length > 0) {
+                const lastEntry = normalEntries.length > 0 ? normalEntries[normalEntries.length - 1] : null;
+                const lastHour = lastEntry ? new Date(lastEntry.timestamp).getHours() : 0;
+                
+                // Check if we should look ahead: 
+                // 1. Configured as Night Shift
+                // 2. OR Late entry (>=18h) that seems incomplete (odd count or explicit start type)
+                const seemsIncomplete = lastEntry && (
+                    (lastEntry.type === 'entrada' || lastEntry.type === 'retorno') || 
+                    (normalEntries.length % 2 !== 0 && lastEntry.type !== 'saida' && lastEntry.type !== 'intervalo')
+                );
+                
+                const shouldLookAhead = isNightShift || (lastHour >= 18 && seemsIncomplete);
+
+                if (shouldLookAhead && normalEntries.length > 0) {
                     const nextDay = addDays(day, 1);
                     const nextKey = format(nextDay, 'yyyy-MM-dd');
                     const nextDayEntries = entriesByDay.get(nextKey) || [];
