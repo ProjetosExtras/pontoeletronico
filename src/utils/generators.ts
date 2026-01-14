@@ -849,6 +849,21 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const t3Time = entrada2 ? new Date(entrada2.timestamp).getTime() : t2Time;
                 if (!saida2) saida2 = consumeNextUnused(t3Time);
 
+                // FIX: Fallback for night shift exit that might be sorted earlier due to wrong date (e.g. 07:00 on same day as start)
+                if (!saida2 && unusedEntries.length > 0) {
+                     // Find an entry that looks like a morning exit (e.g. < 12:00)
+                     const morningExitIndex = unusedEntries.findIndex(e => {
+                         const h = new Date(e.timestamp).getHours();
+                         return h < 13; // Allow up to 13:00 just in case
+                     });
+                     
+                     if (morningExitIndex !== -1) {
+                         saida2 = unusedEntries[morningExitIndex];
+                         unusedEntries.splice(morningExitIndex, 1);
+                         usedIds.add(saida2.id);
+                     }
+                }
+
                 const t1 = fmt(entrada1);
                 const t2 = fmt(saida1);
                 const t3 = fmt(entrada2);
