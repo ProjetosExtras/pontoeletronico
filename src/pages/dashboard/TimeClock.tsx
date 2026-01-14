@@ -124,8 +124,38 @@ const TimeClock = () => {
         
         if (error) throw error;
         
-        // Use all entries as retornadas pelo banco, sem deduplicar por horário
-        const uniqueEntries: TimeEntryRow[] = (data as TimeEntryRow[]) || [];
+        // Deduplicate logic: Hide entries that are likely double-punches (same employee, same type, within 5 minutes)
+        // Data is sorted by timestamp DESC (latest first)
+        const rawEntries = (data as TimeEntryRow[]) || [];
+        const cleanedEntries: TimeEntryRow[] = [];
+        const lastSeenMap = new Map<string, Date>(); // Key: "empId-date-type", Value: Timestamp
+
+        for (const entry of rawEntries) {
+            if (!entry.employee_id) {
+                cleanedEntries.push(entry);
+                continue;
+            }
+
+            const entryDate = new Date(entry.timestamp);
+            const dateStr = format(entryDate, 'yyyy-MM-dd');
+            // Key scope: Employee + Day + Type
+            const key = `${entry.employee_id}-${dateStr}-${entry.type}`;
+            
+            if (lastSeenMap.has(key)) {
+                const lastDate = lastSeenMap.get(key)!;
+                const diffMinutes = Math.abs(lastDate.getTime() - entryDate.getTime()) / 60000;
+                
+                // If same type on same day and within 10 minutes, skip (show only the latest one)
+                if (diffMinutes < 10) {
+                    continue;
+                }
+            }
+            
+            lastSeenMap.set(key, entryDate);
+            cleanedEntries.push(entry);
+        }
+
+        const uniqueEntries = cleanedEntries;
 
         // If a specific employee and month are selected, fill in missing days
         if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth) {
