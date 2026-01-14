@@ -20,6 +20,13 @@ type EmployeeRow = {
     admission_date?: string | null;
     job_title?: string | null;
     shift_type?: string | null;
+    work_shift_id?: string | null;
+    work_shifts?: {
+        id: string;
+        name: string;
+        type: 'weekly' | '12x36';
+        schedule_json: any;
+    } | null;
 };
 
 type TimeEntryRow = {
@@ -298,8 +305,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
          let query = supabase
              .from('time_entries')
-             .select('*, employees(name, pis, code, cpf, admission_date, job_title, shift_type)')
-             .eq('company_id', profile.company_id)
+            .select('*, employees(name, pis, code, cpf, admission_date, job_title, shift_type, work_shift_id, work_shifts(*))')
+            .eq('company_id', profile.company_id)
              .gte('timestamp', startPeriod.toISOString())
              .lte('timestamp', endPeriod.toISOString())
              .order('timestamp', { ascending: true });
@@ -384,6 +391,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let is3hMorning = false;
             let isStandard0918 = false;
             let isSegQuiSab716Sex711 = false;
+            let isCustomWeekly = false;
+            let customSchedule: any = null;
+            let customShiftName = "";
 
             if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
                 if (shiftTypeOverride === '12x36') {
@@ -401,6 +411,18 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     isNightShift = false;
                 } else if (shiftTypeOverride === 'seg_qui_sab_7_16_sex_7_11') {
                     isSegQuiSab716Sex711 = true;
+                }
+            } else if (empData.work_shifts && empData.work_shift_id) {
+                // Priority to Custom Shift from DB
+                const ws = empData.work_shifts;
+                customShiftName = ws.name;
+                if (ws.type === '12x36') {
+                    is12x36 = true;
+                    // Basic inference for night shift based on start time
+                    if (ws.schedule_json?.start === '19:00') isNightShift = true;
+                } else {
+                    isCustomWeekly = true;
+                    customSchedule = ws.schedule_json;
                 }
             } else if (empData.shift_type) {
                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
@@ -453,15 +475,24 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const scheduleLabel = is12x36 
                 ? (isNightShift ? '12X36 NOTURNO (19:00-07:00)' : '12X36 (07:00-19:00)') 
-                : (isSegQuiSab716Sex711 
-                    ? 'SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00'
-                    : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL')));
+                : (isCustomWeekly 
+                    ? customShiftName.toUpperCase()
+                    : (isSegQuiSab716Sex711 
+                        ? 'SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00'
+                        : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL'))));
             
             let scheduleRows = '';
             if (is12x36) {
                  scheduleRows = isNightShift 
                  ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
+            } else if (isCustomWeekly && customSchedule) {
+                 const dayLabels = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
+                 scheduleRows = dayLabels.map((label, i) => {
+                     const cfg = customSchedule[String(i)];
+                     if (!cfg || !cfg.start || !cfg.end) return '';
+                     return `<tr><td>${label}</td><td>${cfg.start}</td><td> - </td><td> - </td><td>${cfg.end}</td></tr>`;
+                 }).join('');
             } else if (isSegQuiSab716Sex711) {
                  scheduleRows = [
                     `<tr><td>SEG</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
@@ -640,7 +671,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const isSaturdayMorning = empCode === '6';
 
                 let expectedStart = '08:00';
-                if (is12x36) {
+                if (isCustomWeekly && customSchedule) {
+                    const cfg = customSchedule[String(dow)];
+                    if (cfg?.start) expectedStart = cfg.start;
+                } else if (is12x36) {
                     expectedStart = isNightShift ? '19:00' : '07:00';
                 } else if (isStandard0918 || isId3) {
                     if (dow === 6 && isSaturdayAlternating && dayEntries.length > 0) {
@@ -653,7 +687,17 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 }
                 
                 let expectedMinutes = 0;
-                if (isSegQuiSab716Sex711) {
+                if (isCustomWeekly && customSchedule) {
+                    const cfg = customSchedule[String(dow)];
+                    if (cfg?.start && cfg?.end) {
+                        const [h1, m1] = cfg.start.split(':').map(Number);
+                        const [h2, m2] = cfg.end.split(':').map(Number);
+                        let totalMins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                        if (totalMins < 0) totalMins += 1440; // Handle cross-midnight if needed, though weekly usually doesn't
+                        expectedMinutes = totalMins > 360 ? totalMins - 60 : totalMins;
+                        if (expectedMinutes < 0) expectedMinutes = 0;
+                    }
+                } else if (isSegQuiSab716Sex711) {
                     if (dow >= 1 && dow <= 4) expectedMinutes = 480;
                     else if (dow === 5) expectedMinutes = 240;
                     else if (dow === 6) expectedMinutes = 480;
