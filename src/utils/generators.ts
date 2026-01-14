@@ -439,8 +439,15 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            // FORCE ID 30 TO BE 12x36 - REMOVED, using DB shift_type
-
+            // FORCE ID 30 TO BE 12x36 Diurno (07:00 - 19:00)
+            if (empCode === '30') {
+                is12x36 = true;
+                isNightShift = false;
+                is3hMorning = false;
+                isStandard0918 = false;
+                isSegQuiSab716Sex711 = false;
+                isCustomWeekly = false;
+            }
 
             const hasSaturdayWork = workedDayKeys.some((key) => {
                 const d = new Date(`${key}T00:00:00`);
@@ -455,6 +462,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             if ((is12x36 || is3hMorning) && empData.admission_date) {
                 const admStr = String(empData.admission_date).split('T')[0];
                 anchorDay = new Date(`${admStr}T00:00:00`);
+                
+                // Ajuste de inversão para ID 30
+                if (empCode === '30') {
+                     anchorDay = addDays(anchorDay, 1);
+                }
             }
 
             const consumedEntryIds = new Set<string>();
