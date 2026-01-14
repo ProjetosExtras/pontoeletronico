@@ -463,8 +463,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const admStr = String(empData.admission_date).split('T')[0];
                 anchorDay = new Date(`${admStr}T00:00:00`);
                 
-                // Ajuste de inversão para ID 30
-                if (empCode === '30') {
+                // Ajuste de inversão para ID 30 e 12
+                if (empCode === '30' || empCode === '12') {
                      anchorDay = addDays(anchorDay, 1);
                 }
             }
