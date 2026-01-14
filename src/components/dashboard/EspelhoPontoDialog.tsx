@@ -155,6 +155,7 @@ export function EspelhoPontoDialog() {
                         <SelectItem value="standard">Normal (Seg-Sex)</SelectItem>
                         <SelectItem value="12x36">12x36</SelectItem>
                         <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
+                        <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
