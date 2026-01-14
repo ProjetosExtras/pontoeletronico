@@ -860,7 +860,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // Calculate Pair 1
                 if (entrada1 && saida1) {
                     const start = new Date(entrada1.timestamp);
-                    const end = new Date(saida1.timestamp);
+                    let end = new Date(saida1.timestamp);
+                    // FIX: If end time is before start time (e.g. 07:00 < 19:00), assume it is next day
+                    if (end.getTime() < start.getTime()) {
+                        end = addDays(end, 1);
+                    }
                     workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
                     nightMinutes += calculateNightMinutes(start, end);
                 }
@@ -868,7 +872,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // Calculate Pair 2
                 if (entrada2 && saida2) {
                     const start = new Date(entrada2.timestamp);
-                    const end = new Date(saida2.timestamp);
+                    let end = new Date(saida2.timestamp);
+                    // FIX: If end time is before start time (e.g. 07:00 < 21:15), assume it is next day
+                    if (end.getTime() < start.getTime()) {
+                        end = addDays(end, 1);
+                    }
                     workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
                     nightMinutes += calculateNightMinutes(start, end);
                 }
@@ -876,7 +884,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // Fallback for Continuous Shift (e1 -> s2) only if inner punches are missing
                 if (entrada1 && saida2 && !saida1 && !entrada2) {
                     const start = new Date(entrada1.timestamp);
-                    const end = new Date(saida2.timestamp);
+                    let end = new Date(saida2.timestamp);
+                    // FIX: If end time is before start time, assume next day
+                    if (end.getTime() < start.getTime()) {
+                        end = addDays(end, 1);
+                    }
                     workedMinutes += Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
                     nightMinutes += calculateNightMinutes(start, end);
                 }
