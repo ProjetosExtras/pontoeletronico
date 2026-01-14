@@ -429,7 +429,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const scheduleLabel = is12x36 
                 ? (isNightShift ? '12X36 NOTURNO' : '12X36') 
-                : (is3hMorning ? '3H DIURNO' : 'NORMAL');
+                : (is3hMorning ? '3H DIURNO' : (isStandard0918 ? 'PADRÃO (09:00-18:00)' : 'NORMAL'));
             
             let scheduleRows = '';
             if (is12x36) {
@@ -447,8 +447,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         `<tr><td>SAB</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`
                     ] : [])
                  ].join('');
-            } else if (isId3) {
-                 // ID 3: 09:00 - 18:00 (Assuming 13:00-14:00 break)
+            } else if (isStandard0918 || isId3) {
+                 // ID 3 or Standard 09-18: 09:00 - 18:00 (Assuming 13:00-14:00 break)
                  scheduleRows = [
                     `<tr><td>SEG</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
                     `<tr><td>TER</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,

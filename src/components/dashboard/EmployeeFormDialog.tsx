@@ -42,7 +42,7 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
-  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno"]).default("standard"),
+  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18"]).default("standard"),
 });
 
 interface EmployeeFormDialogProps {
