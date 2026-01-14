@@ -375,6 +375,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let is12x36 = false;
             let isNightShift = false;
             let is3hMorning = false;
+            let isStandard0918 = false;
 
             if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
                 if (shiftTypeOverride === '12x36') {
@@ -385,6 +386,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     isNightShift = true;
                 } else if (shiftTypeOverride === '3h_diurno') {
                     is3hMorning = true;
+                } else if (shiftTypeOverride === 'standard_09_18') {
+                    isStandard0918 = true;
                 } else if (shiftTypeOverride === 'standard') {
                     is12x36 = false;
                     isNightShift = false;
@@ -393,6 +396,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
                 isNightShift = empData.shift_type === '12x36_noturno';
                 is3hMorning = empData.shift_type === '3h_diurno';
+                isStandard0918 = empData.shift_type === 'standard_09_18';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -429,7 +433,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const scheduleLabel = is12x36 
                 ? (isNightShift ? '12X36 NOTURNO' : '12X36') 
-                : (is3hMorning ? '3H DIURNO' : (isStandard0918 ? 'PADRÃO (09:00-18:00)' : 'NORMAL'));
+                : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL'));
             
             let scheduleRows = '';
             if (is12x36) {
@@ -448,7 +452,6 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     ] : [])
                  ].join('');
             } else if (isStandard0918 || isId3) {
-                 // ID 3 or Standard 09-18: 09:00 - 18:00 (Assuming 13:00-14:00 break)
                  scheduleRows = [
                     `<tr><td>SEG</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
                     `<tr><td>TER</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
@@ -456,7 +459,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>QUI</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
                     `<tr><td>SEX</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`,
                     ...(hasSaturdayWork ? [
-                        `<tr><td>SAB</td><td>09:00</td><td>13:00</td><td>14:00</td><td>18:00</td></tr>`
+                        `<tr><td>SAB</td><td>08:00</td><td>12:00</td><td>13:00</td><td>17:00</td></tr>`
                     ] : [])
                  ].join('');
             } else {
@@ -609,7 +612,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 if (is12x36) {
                     expectedStart = isNightShift ? '19:00' : '07:00';
                 } else if (isStandard0918 || isId3) {
-                    expectedStart = '09:00';
+                    if (dow === 6 && isSaturdayAlternating && dayEntries.length > 0) {
+                        expectedStart = '08:00';
+                    } else {
+                        expectedStart = '09:00';
+                    }
                 }
                 
                 let expectedMinutes = 0;
@@ -785,6 +792,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     .join('; ');
                 if (justifications) obsParts.push(justifications.toUpperCase());
 
+                if (dow === 6 && isSaturdayAlternating && !shouldWork && !hasAnyEntry) {
+                    obsParts.length = 0;
+                    obsParts.push('SÁBADO DE FOLGA');
+                }
+
                 let timeCells = `
                     <td>${t1}</td>
                     <td>${t2}</td>
@@ -795,7 +807,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 if (!hasAnyEntry) {
                     if (!shouldWork) {
                         timeCells = `<td colspan="4" style="text-align: center; color: #888; letter-spacing: 2px;">FOLGA</td>`;
-                        if (!obsParts.includes('FOLGA')) obsParts.push('FOLGA');
+                        if (!(dow === 6 && isSaturdayAlternating) && !obsParts.includes('FOLGA')) {
+                            obsParts.push('FOLGA');
+                        }
                     } else if (isPast) {
                         if (!obsParts.includes('FALTA')) obsParts.push('FALTA');
                     }

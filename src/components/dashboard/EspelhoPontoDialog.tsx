@@ -151,8 +151,9 @@ export function EspelhoPontoDialog() {
                         <SelectValue placeholder="Selecione a escala" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="auto">Automático (Usar Cadastro)</SelectItem>
-                        <SelectItem value="standard">Normal (Seg-Sex)</SelectItem>
+                        <SelectItem value="auto">Automático (Usar escala cadastrada)</SelectItem>
+                        <SelectItem value="standard">Padrão (Seg-Sex)</SelectItem>
+                        <SelectItem value="standard_09_18">Padrão (09:00-18:00)</SelectItem>
                         <SelectItem value="12x36">12x36</SelectItem>
                         <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
                         <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
