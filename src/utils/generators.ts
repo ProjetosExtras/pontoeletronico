@@ -801,6 +801,23 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const uniqueMap = new Map();
                 normalEntries.forEach(e => uniqueMap.set(new Date(e.timestamp).getTime(), e));
                 normalEntries = Array.from(uniqueMap.values());
+
+                // FIX: Detect and fix mis-dated night shift exits (e.g. 07:00 on same day as 19:00 start)
+                const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
+                if (startEntry) {
+                     normalEntries.forEach(e => {
+                         const d = new Date(e.timestamp);
+                         const h = d.getHours();
+                         // If entry is early morning (< 13:00) and strictly earlier than start time on same day
+                         // It implies it belongs to next day (user error)
+                         if (h < 13 && d.getTime() < new Date(startEntry.timestamp).getTime()) {
+                              // Mutate timestamp to next day
+                              const fixedDate = addDays(d, 1);
+                              e.timestamp = fixedDate.toISOString();
+                         }
+                     });
+                }
+
                 normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                 
                 // Assignment Logic: Types first, then remaining slots
@@ -927,6 +944,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const expectedStartDate = new Date(day);
                 const [eh, em] = expectedStart.split(':').map(Number);
                 expectedStartDate.setHours(eh, em, 0, 0);
+
+                // FIX: Detect shift swap (Day -> Night) to avoid 12h delay
+                // If expected is 07:00 but first entry is >= 18:00, assume night shift start (19:00)
+                if (expectedStart === '07:00' && entrada1) {
+                    const h = new Date(entrada1.timestamp).getHours();
+                    if (h >= 18) {
+                         expectedStartDate.setHours(19, 0, 0, 0);
+                    }
+                }
+
                 const atrasoMins = (shouldWork && entrada1)
                   ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
                   : 0;
