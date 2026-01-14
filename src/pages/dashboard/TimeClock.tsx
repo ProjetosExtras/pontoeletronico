@@ -318,7 +318,11 @@ const TimeClock = () => {
           <p className="text-muted-foreground">Monitoramento e histórico de marcações.</p>
         </div>
         <div className="flex items-center gap-2">
-            <CreateEntryDialog onSuccess={fetchEntries} preSelectedEmployeeId={selectedEmployee} />
+            <CreateEntryDialog 
+                onSuccess={fetchEntries} 
+                preSelectedEmployeeId={selectedEmployee} 
+                preSelectedDate={selectedDay || undefined}
+            />
             <Button variant="destructive" onClick={() => setIsClearDialogOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Limpar Importações

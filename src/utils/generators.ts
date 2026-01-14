@@ -669,7 +669,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     }
                     current.setMinutes(current.getMinutes() + 1);
                 }
-                return minutes;
+                // Apply reduction factor: 1 night hour = 52.5 clock minutes
+                // Multiplier = 60 / 52.5 ≈ 1.142857
+                return Math.round(minutes * (60 / 52.5));
             };
 
             daysInMonth.forEach(day => {
@@ -724,7 +726,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+                    if (empCode === '12') {
+                        expectedMinutes = hasAnyEntry ? 660 : 0;
+                    } else {
+                        expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+                    }
                 } else if (is3hMorning) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
                     else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
