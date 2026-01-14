@@ -816,7 +816,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
                 if (entrada2) usedIds.add(entrada2.id);
                 
-                let saida2 = normalEntries.find(e => e.type === 'saida' && !usedIds.has(e.id));
+                // FIX: Search for saida2 from the end (last 'saida') to avoid grabbing intermediate exits
+                let saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
                 if (saida2) usedIds.add(saida2.id);
                 
                 // 2. Fill gaps with unused entries respecting chronological order
