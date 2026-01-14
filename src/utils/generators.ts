@@ -439,8 +439,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            // FORCE ID 30 TO BE 12x36 Diurno (07:00 - 19:00)
-            if (empCode === '30') {
+            // FORCE ID 30 and 12 TO BE 12x36 Diurno (07:00 - 19:00)
+            if (empCode === '30' || empCode === '12') {
                 is12x36 = true;
                 isNightShift = false;
                 is3hMorning = false;
