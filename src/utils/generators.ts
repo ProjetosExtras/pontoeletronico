@@ -347,6 +347,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const empData = empObj.data;
             const empEntries = empObj.entries as TimeEntryRow[];
+            const empCode = String(empData.code || '').trim();
+            const isId3 = empCode === '3';
+            const isId3 = empCode === '3';
+            const isId2 = empCode === '2';
+            const isId30 = empCode === '30';
+            const isSaturdayMorning = empCode === '6';
+            const isSaturdayAlternating = isId2 || isId3;
 
             const entriesByDay = new Map<string, TimeEntryRow[]>();
             empEntries.forEach((e: TimeEntryRow) => {
@@ -402,13 +409,24 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
             }
 
+            // FORCE ID 30 TO BE 12x36 - REMOVED, using DB shift_type
+
+
             const hasSaturdayWork = workedDayKeys.some((key) => {
                 const d = new Date(`${key}T00:00:00`);
                 return getDay(d) === 6;
             });
 
             const anchorKey = workedDayKeys[0];
-            const anchorDay = anchorKey ? new Date(`${anchorKey}T00:00:00`) : new Date(startPeriod);
+            let anchorDay = anchorKey ? new Date(`${anchorKey}T00:00:00`) : new Date(startPeriod);
+
+            // FIX: Use admission date as stable anchor for 12x36 shifts to prevent phase inversion
+            // when employee misses the first shift of the month.
+            if ((is12x36 || is3hMorning) && empData.admission_date) {
+                const admStr = String(empData.admission_date).split('T')[0];
+                anchorDay = new Date(`${admStr}T00:00:00`);
+            }
+
             const consumedEntryIds = new Set<string>();
 
             // Info Rows Helper
@@ -420,19 +438,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             `;
 
             const admission = empData.admission_date ? String(empData.admission_date).split('T')[0].split('-').reverse().join('/') : '-';
-             const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
+            const jobTitle = empData.job_title ? empData.job_title.toUpperCase() : 'FUNCIONÁRIO';
             
-            const empCode = String(empData.code || '');
-            const isId3 = empCode === '3';
-            const isId2 = empCode === '2';
-            const isSaturdayAlternating = isId2 || isId3;
-            const isSaturdayMorning = empCode === '6';
-
             // Calculate sheet number based on month
             const sheetNumber = pad(startPeriod.getMonth() + 1, 3);
 
             const scheduleLabel = is12x36 
-                ? (isNightShift ? '12X36 NOTURNO' : '12X36') 
+                ? (isNightShift ? '12X36 NOTURNO (19:00-07:00)' : '12X36 (07:00-19:00)') 
                 : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL'));
             
             let scheduleRows = '';
@@ -621,9 +633,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 
                 let expectedMinutes = 0;
                 if (is12x36) {
-                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 660 : 0;
+                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
                 } else if (is3hMorning) {
-                    expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 180 : 0;
+                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
