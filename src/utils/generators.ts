@@ -435,12 +435,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
             }
 
-            if (empCode === '21') {
+            // FORCE ID 30 and 12 TO BE 12x36 Diurno (07:00 - 19:00) only if no explicit configuration
+            const hasExplicitConfig = (shiftTypeOverride && shiftTypeOverride !== 'auto') || 
+                                      (empData.work_shifts && empData.work_shift_id) || 
+                                      (empData.shift_type && empData.shift_type !== 'auto');
+
+            if (!hasExplicitConfig && empCode === '21') {
                 isSegQuiSab716Sex711 = true;
             }
 
-            // FORCE ID 30 and 12 TO BE 12x36 Diurno (07:00 - 19:00)
-            if (empCode === '30' || empCode === '12') {
+            if (!hasExplicitConfig && (empCode === '30' || empCode === '12')) {
                 is12x36 = true;
                 isNightShift = false;
                 is3hMorning = false;
