@@ -124,19 +124,8 @@ const TimeClock = () => {
         
         if (error) throw error;
         
-        // Deduplicate entries based on employee_id and timestamp (visual deduplication)
-        const uniqueEntries: TimeEntryRow[] = [];
-        const seen = new Set();
-        
-        if (data) {
-            data.forEach((entry: any) => {
-                const key = `${entry.employee_id}|${new Date(entry.timestamp).toISOString()}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueEntries.push(entry);
-                }
-            });
-        }
+        // Use all entries as retornadas pelo banco, sem deduplicar por horário
+        const uniqueEntries: TimeEntryRow[] = (data as TimeEntryRow[]) || [];
 
         // If a specific employee and month are selected, fill in missing days
         if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth) {
