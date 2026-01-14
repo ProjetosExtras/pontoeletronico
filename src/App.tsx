@@ -27,6 +27,7 @@ import Employees from "./pages/dashboard/Employees";
 import TimeClock from "./pages/dashboard/TimeClock";
 import Reports from "./pages/dashboard/Reports";
 import Settings from "./pages/dashboard/Settings";
+import WorkShifts from "./pages/dashboard/WorkShifts";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -47,6 +48,7 @@ const App = () => (
           <Route path="/dashboard/funcionarios" element={<Employees />} />
           <Route path="/dashboard/pontos" element={<TimeClock />} />
           <Route path="/dashboard/relatorios" element={<Reports />} />
+          <Route path="/dashboard/escalas" element={<WorkShifts />} />
           <Route path="/dashboard/configuracoes" element={<Settings />} />
 
           <Route path="/documentacao" element={<Documentation />} />

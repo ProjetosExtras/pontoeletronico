@@ -42,7 +42,8 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
-  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18"]).default("standard"),
+  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18", "seg_qui_sab_7_16_sex_7_11"]).default("standard"),
+  work_shift_id: z.string().optional().nullable(),
 });
 
 interface EmployeeFormDialogProps {
@@ -55,6 +56,15 @@ interface EmployeeFormDialogProps {
 export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlledOpen, onOpenChange: setControlledOpen }: EmployeeFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [workShifts, setWorkShifts] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchShifts() {
+        const { data } = await supabase.from('work_shifts').select('id, name').order('name');
+        if (data) setWorkShifts(data);
+    }
+    fetchShifts();
+  }, []);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -84,6 +94,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
         admission_date: employeeToEdit.admission_date ? employeeToEdit.admission_date.split("T")[0] : new Date().toISOString().split("T")[0],
         pin: employeeToEdit.pin || "",
         shift_type: employeeToEdit.shift_type || "standard",
+        work_shift_id: employeeToEdit.work_shift_id || null,
       });
     } else {
         form.reset({
@@ -95,6 +106,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
             admission_date: new Date().toISOString().split("T")[0],
             pin: "",
             shift_type: "standard",
+            work_shift_id: null,
         });
     }
   }, [employeeToEdit, form, open]);
@@ -139,6 +151,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
             admission_date: values.admission_date,
             pin: values.pin || null,
             shift_type: values.shift_type,
+            work_shift_id: values.work_shift_id,
           })
           .eq("id", employeeToEdit.id);
 
@@ -156,6 +169,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
           admission_date: values.admission_date,
           pin: values.pin || null,
           shift_type: values.shift_type,
+          work_shift_id: values.work_shift_id,
         });
 
         if (error) throw error;
@@ -294,30 +308,62 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="shift_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Escala</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a escala" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="standard">Padrão (Seg-Sex)</SelectItem>
-                      <SelectItem value="12x36">12x36 (Diurno)</SelectItem>
-                      <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
-                      <SelectItem value="standard_09_18">Padrão (09:00-18:00)</SelectItem>
-                      <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="shift_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Escala (Padrão)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a escala" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="standard">Padrão (Seg-Sex)</SelectItem>
+                        <SelectItem value="12x36">12x36 (Diurno)</SelectItem>
+                        <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
+                        <SelectItem value="standard_09_18">Padrão (09:00-18:00)</SelectItem>
+                        <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
+                        <SelectItem value="seg_qui_sab_7_16_sex_7_11">
+                          SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="work_shift_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Escala Personalizada</FormLabel>
+                    <Select 
+                        onValueChange={(val) => field.onChange(val === "none" ? null : val)} 
+                        value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione (Opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">-- Usar Padrão --</SelectItem>
+                        {workShifts.map(ws => (
+                            <SelectItem key={ws.id} value={ws.id}>{ws.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>

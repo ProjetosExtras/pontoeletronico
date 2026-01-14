@@ -383,6 +383,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let isNightShift = false;
             let is3hMorning = false;
             let isStandard0918 = false;
+            let isSegQuiSab716Sex711 = false;
 
             if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
                 if (shiftTypeOverride === '12x36') {
@@ -398,15 +399,22 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 } else if (shiftTypeOverride === 'standard') {
                     is12x36 = false;
                     isNightShift = false;
+                } else if (shiftTypeOverride === 'seg_qui_sab_7_16_sex_7_11') {
+                    isSegQuiSab716Sex711 = true;
                 }
             } else if (empData.shift_type) {
                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
                 isNightShift = empData.shift_type === '12x36_noturno';
                 is3hMorning = empData.shift_type === '3h_diurno';
                 isStandard0918 = empData.shift_type === 'standard_09_18';
+                isSegQuiSab716Sex711 = empData.shift_type === 'seg_qui_sab_7_16_sex_7_11';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
+            }
+
+            if (empCode === '21') {
+                isSegQuiSab716Sex711 = true;
             }
 
             // FORCE ID 30 TO BE 12x36 - REMOVED, using DB shift_type
@@ -445,13 +453,24 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             const scheduleLabel = is12x36 
                 ? (isNightShift ? '12X36 NOTURNO (19:00-07:00)' : '12X36 (07:00-19:00)') 
-                : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL'));
+                : (isSegQuiSab716Sex711 
+                    ? 'SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00'
+                    : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL')));
             
             let scheduleRows = '';
             if (is12x36) {
                  scheduleRows = isNightShift 
                  ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
+            } else if (isSegQuiSab716Sex711) {
+                 scheduleRows = [
+                    `<tr><td>SEG</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
+                    `<tr><td>TER</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
+                    `<tr><td>QUA</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
+                    `<tr><td>QUI</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
+                    `<tr><td>SEX</td><td>07:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    `<tr><td>SAB</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`
+                 ].join('');
             } else if (is3hMorning) {
                  scheduleRows = [
                     `<tr><td>SEG</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
@@ -629,15 +648,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     } else {
                         expectedStart = '09:00';
                     }
+                } else if (isSegQuiSab716Sex711) {
+                    expectedStart = '07:00';
                 }
                 
                 let expectedMinutes = 0;
-                if (isId21) {
-                    // ID 21: Mon-Thu (480), Fri (240), Sat (480), Sun (0)
-                    if (dow >= 1 && dow <= 4) expectedMinutes = 480; // Seg-Qui
-                    else if (dow === 5) expectedMinutes = 240; // Sex
-                    else if (dow === 6) expectedMinutes = 480; // Sab
-                    else expectedMinutes = 0; // Dom
+                if (isSegQuiSab716Sex711) {
+                    if (dow >= 1 && dow <= 4) expectedMinutes = 480;
+                    else if (dow === 5) expectedMinutes = 240;
+                    else if (dow === 6) expectedMinutes = 480;
+                    else expectedMinutes = 0;
                 } else if (is12x36) {
                     expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
                 } else if (is3hMorning) {

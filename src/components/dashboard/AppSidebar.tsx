@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings, Users, FileText, Clock, LogOut } from "lucide-react"
+import { Calendar, Home, Inbox, Search, Settings, Users, FileText, Clock, LogOut, CalendarRange } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +26,11 @@ const items = [
     title: "Funcionários",
     url: "/dashboard/funcionarios",
     icon: Users,
+  },
+  {
+    title: "Escalas",
+    url: "/dashboard/escalas",
+    icon: CalendarRange,
   },
   {
     title: "Registros de Ponto",
