@@ -54,6 +54,7 @@ const TimeClock = () => {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [selectedDay, setSelectedDay] = useState<string>("");
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ const TimeClock = () => {
 
   useEffect(() => {
     fetchEntries();
-  }, [selectedEmployee, selectedMonth]);
+  }, [selectedEmployee, selectedMonth, selectedDay]);
 
   const fetchEmployees = async () => {
       try {
@@ -119,6 +120,15 @@ const TimeClock = () => {
             // Default limit if no filter
              query = query.limit(50);
         }
+
+        // Filter by specific Day (overrides month range within that day)
+        if (selectedDay) {
+            const startDate = new Date(`${selectedDay}T00:00:00`);
+            const endDate = new Date(`${selectedDay}T23:59:59.999`);
+            query = query
+                .gte('timestamp', startDate.toISOString())
+                .lte('timestamp', endDate.toISOString());
+        }
         
         const { data, error } = await query;
         
@@ -157,8 +167,8 @@ const TimeClock = () => {
 
         const uniqueEntries = cleanedEntries;
 
-        // If a specific employee and month are selected, fill in missing days
-        if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth) {
+        // If a specific employee and month are selected (and no specific day), fill in missing days
+        if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth && !selectedDay) {
             const [year, month] = selectedMonth.split('-').map(Number);
             const start = startOfMonth(new Date(year, month - 1));
             const end = endOfMonth(new Date(year, month - 1));
@@ -357,15 +367,33 @@ const TimeClock = () => {
                 <div className="space-y-2 w-full md:w-[200px]">
                     <label className="text-sm font-medium">Mês de Referência</label>
                     <Input 
-                        type="month" 
+                        type="month"
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(e.target.value)}
+                    />
+                </div>
+
+                <div className="space-y-2 w-full md:w-[200px]">
+                    <label className="text-sm font-medium">Dia</label>
+                    <Input 
+                        type="date"
+                        lang="pt-BR"
+                        value={selectedDay}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedDay(value);
+                            if (value) {
+                                const [year, month] = value.split("-");
+                                setSelectedMonth(`${year}-${month}`);
+                            }
+                        }}
                     />
                 </div>
 
                 <Button variant="outline" onClick={() => {
                     setSelectedEmployee("all");
                     setSelectedMonth(format(new Date(), 'yyyy-MM'));
+                    setSelectedDay("");
                 }} title="Limpar Filtros">
                     <X className="h-4 w-4" />
                 </Button>
