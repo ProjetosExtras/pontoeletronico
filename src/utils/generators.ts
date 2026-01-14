@@ -459,10 +459,15 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             // FIX: Use admission date as stable anchor for 12x36 shifts to prevent phase inversion
             // when employee misses the first shift of the month.
-            if ((is12x36 || is3hMorning) && empData.admission_date) {
-                const admStr = String(empData.admission_date).split('T')[0];
-                anchorDay = new Date(`${admStr}T00:00:00`);
-                
+            if (is12x36 || is3hMorning) {
+                if (empData.admission_date) {
+                    const admStr = String(empData.admission_date).split('T')[0];
+                    anchorDay = new Date(`${admStr}T00:00:00`);
+                } else if (empCode === '12' || empCode === '30') {
+                    // Fallback for ID 12/30 if no admission date
+                    anchorDay = new Date('2024-01-01T00:00:00');
+                }
+
                 // Ajuste de inversão para ID 30 e 12
                 if (empCode === '30' || empCode === '12') {
                      anchorDay = addDays(anchorDay, 1);
