@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -83,8 +83,8 @@ export function WorkShiftDialog({ onSuccess, shiftToEdit, trigger }: WorkShiftDi
     },
   });
 
-  // Carregar dados se for edição
-  useState(() => {
+  // Carregar dados se for edição ou resetar ao abrir
+  useEffect(() => {
     if (shiftToEdit) {
       form.reset({
         name: shiftToEdit.name,
@@ -107,8 +107,17 @@ export function WorkShiftDialog({ onSuccess, shiftToEdit, trigger }: WorkShiftDi
          form.setValue('start_time_12x36', savedSchedule.start || "07:00");
          form.setValue('end_time_12x36', savedSchedule.end || "19:00");
       }
+    } else if (open) {
+        // Resetar se for nova escala
+        form.reset({ name: "", type: "weekly", start_time_12x36: "07:00", end_time_12x36: "19:00" });
+        const initial: any = {};
+        DAYS_OF_WEEK.forEach(day => {
+          const isWeekend = day.id === '0' || day.id === '6';
+          initial[day.id] = { start: "08:00", end: "17:00", active: !isWeekend };
+        });
+        setWeeklySchedule(initial);
     }
-  });
+  }, [shiftToEdit, form, open]);
 
   const shiftType = form.watch("type");
 
