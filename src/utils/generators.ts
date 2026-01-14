@@ -705,7 +705,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 } else if (is12x36) {
                     expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
                 } else if (is3hMorning) {
-                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
+                    if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+                    else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
+                    else expectedMinutes = 0;
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
