@@ -51,7 +51,19 @@ BEGIN
         name = EXCLUDED.name,
         job_title = EXCLUDED.job_title;
 
-    -- 3. Atualizar turnos específicos
-    UPDATE public.employees SET shift_type = '12x36_noturno' WHERE company_id = v_company_id AND code = '31';
+    -- 3. Definir 12x36 diurno como padrão e exceções
+    UPDATE public.employees 
+    SET shift_type = '12x36'
+    WHERE company_id = v_company_id;
+
+    -- Exceção: funcionário código 31 continua 12x36 noturno (19h–07h)
+    UPDATE public.employees 
+    SET shift_type = '12x36_noturno' 
+    WHERE company_id = v_company_id AND code = '31';
+
+    -- Exceção: funcionário código 32: 3h Diurno (08h–11h)
+    UPDATE public.employees 
+    SET shift_type = '3h_diurno' 
+    WHERE company_id = v_company_id AND code = '32';
 
 END $$;

@@ -42,7 +42,7 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
-  shift_type: z.enum(["standard", "12x36", "12x36_noturno"]).default("standard"),
+  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno"]).default("standard"),
 });
 
 interface EmployeeFormDialogProps {
@@ -310,6 +310,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                       <SelectItem value="standard">Padrão (Seg-Sex)</SelectItem>
                       <SelectItem value="12x36">12x36 (Diurno)</SelectItem>
                       <SelectItem value="12x36_noturno">12x36 (Noturno)</SelectItem>
+                      <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

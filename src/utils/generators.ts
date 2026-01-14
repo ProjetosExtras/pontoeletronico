@@ -374,6 +374,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             // Determine Shift Type
             let is12x36 = false;
             let isNightShift = false;
+            let is3hMorning = false;
 
             if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
                 if (shiftTypeOverride === '12x36') {
@@ -382,6 +383,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 } else if (shiftTypeOverride === '12x36_noturno') {
                     is12x36 = true;
                     isNightShift = true;
+                } else if (shiftTypeOverride === '3h_diurno') {
+                    is3hMorning = true;
                 } else if (shiftTypeOverride === 'standard') {
                     is12x36 = false;
                     isNightShift = false;
@@ -389,6 +392,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             } else if (empData.shift_type) {
                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
                 isNightShift = empData.shift_type === '12x36_noturno';
+                is3hMorning = empData.shift_type === '3h_diurno';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -423,13 +427,26 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             // Calculate sheet number based on month
             const sheetNumber = pad(startPeriod.getMonth() + 1, 3);
 
-            const scheduleLabel = is12x36 ? (isNightShift ? '12X36 NOTURNO' : '12X36') : 'NORMAL';
+            const scheduleLabel = is12x36 
+                ? (isNightShift ? '12X36 NOTURNO' : '12X36') 
+                : (is3hMorning ? '3H DIURNO' : 'NORMAL');
             
             let scheduleRows = '';
             if (is12x36) {
                  scheduleRows = isNightShift 
                  ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
+            } else if (is3hMorning) {
+                 scheduleRows = [
+                    `<tr><td>SEG</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    `<tr><td>TER</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    `<tr><td>QUA</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    `<tr><td>QUI</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    `<tr><td>SEX</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
+                    ...(hasSaturdayWork ? [
+                        `<tr><td>SAB</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`
+                    ] : [])
+                 ].join('');
             } else if (isId3) {
                  // ID 3: 09:00 - 18:00 (Assuming 13:00-14:00 break)
                  scheduleRows = [
@@ -598,6 +615,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let expectedMinutes = 0;
                 if (is12x36) {
                     expectedMinutes = differenceInCalendarDays(day, anchorDay) % 2 === 0 ? 660 : 0;
+                } else if (is3hMorning) {
+                    if (dow >= 1 && dow <= 5) {
+                        expectedMinutes = 180;
+                    } else if (dow === 6) {
+                         expectedMinutes = hasSaturdayWork ? 180 : 0;
+                    } else {
+                        expectedMinutes = 0;
+                    }
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
