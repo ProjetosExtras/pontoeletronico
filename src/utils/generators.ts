@@ -464,7 +464,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            if (!hasExplicitConfig && (empCode === '19' || empCode === '20')) {
+            if (!hasExplicitConfig && (empCode === '18' || empCode === '19' || empCode === '20')) {
                 isSegDom0630_1550 = true;
                 is12x36 = false;
             }
