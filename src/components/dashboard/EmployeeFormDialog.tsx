@@ -333,6 +333,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                         <SelectItem value="seg_sex_07_16_sab_08_12">
                           SEG-SEX 07:00-16:00 | SAB 08:00-12:00
                         </SelectItem>
+                        <SelectItem value="4h_matutino">4H MATUTINO (08:00-12:00)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -392,6 +392,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let isStandard0918 = false;
             let isSegQuiSab716Sex711 = false;
             let isSegSex716Sab812 = false;
+            let is4hMorning = false;
             let isCustomWeekly = false;
             let customSchedule: any = null;
             let customShiftName = "";
@@ -414,6 +415,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     isSegQuiSab716Sex711 = true;
                 } else if (shiftTypeOverride === 'seg_sex_07_16_sab_08_12') {
                     isSegSex716Sab812 = true;
+                } else if (shiftTypeOverride === '4h_matutino') {
+                    is4hMorning = true;
                 }
             } else if (empData.work_shifts && empData.work_shift_id) {
                 // Priority to Custom Shift from DB
@@ -434,6 +437,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isStandard0918 = empData.shift_type === 'standard_09_18';
                 isSegQuiSab716Sex711 = empData.shift_type === 'seg_qui_sab_7_16_sex_7_11';
                 isSegSex716Sab812 = empData.shift_type === 'seg_sex_07_16_sab_08_12';
+                is4hMorning = empData.shift_type === '4h_matutino';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -447,8 +451,6 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             if (!hasExplicitConfig && empCode === '21') {
                 isSegQuiSab716Sex711 = true;
             }
-
-
 
             if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11')) {
                 is12x36 = true;
@@ -509,7 +511,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         ? 'SEG-SEX 07:00-16:00 | SAB 08:00-12:00'
                         : (isSegQuiSab716Sex711 
                             ? 'SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00'
-                            : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL')))));
+                            : (is4hMorning ? '4H MATUTINO (08:00-12:00)' : (is3hMorning ? '3H DIURNO' : (isStandard0918 || isId3 ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' : 'NORMAL'))))));
             
             let scheduleRows = '';
             if (is12x36) {
@@ -553,6 +555,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>QUI</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`,
                     `<tr><td>SEX</td><td>07:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
                     `<tr><td>SAB</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`
+                 ].join('');
+            } else if (is4hMorning) {
+                 scheduleRows = [
+                    `<tr><td>SEG</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
+                    `<tr><td>TER</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
+                    `<tr><td>QUA</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
+                    `<tr><td>QUI</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
+                    `<tr><td>SEX</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`
                  ].join('');
             } else if (is3hMorning) {
                  scheduleRows = [
@@ -743,6 +753,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     }
                 } else if (isSegQuiSab716Sex711) {
                     expectedStart = '07:00';
+                } else if (is4hMorning) {
+                    expectedStart = '08:00';
                 }
                 
                 let expectedMinutes = 0;
@@ -759,6 +771,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 } else if (isSegSex716Sab812) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 480; // 8h (9h span - 1h break)
                     else if (dow === 6) expectedMinutes = 240; // 4h
+                    else expectedMinutes = 0;
+                } else if (is4hMorning) {
+                    if (dow >= 1 && dow <= 5) expectedMinutes = 240; // 4h
                     else expectedMinutes = 0;
                 } else if (isSegQuiSab716Sex711) {
                     if (dow >= 1 && dow <= 4) expectedMinutes = 480;
