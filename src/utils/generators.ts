@@ -451,7 +451,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
             }
 
-            // FORCE ID 30 and 12 TO BE 12x36 Diurno (07:00 - 19:00) only if no explicit configuration
+            // FORCE some IDs TO BE 12x36 Diurno (07:00 - 19:00) only if no explicit configuration
             const hasExplicitConfig = (shiftTypeOverride && shiftTypeOverride !== 'auto') || 
                                       (empData.work_shifts && empData.work_shift_id) || 
                                       (empData.shift_type && empData.shift_type !== 'auto');
@@ -460,7 +460,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11')) {
+            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5')) {
                 is12x36 = true;
                 isNightShift = empCode === '10' || empCode === '31';
                 is3hMorning = false;
@@ -809,7 +809,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26') {
+                    if (empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
