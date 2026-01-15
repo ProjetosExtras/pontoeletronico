@@ -42,7 +42,7 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
-  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18", "seg_qui_sab_7_16_sex_7_11"]).default("standard"),
+  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18", "seg_qui_sab_7_16_sex_7_11", "seg_sex_07_16_sab_08_12"]).default("standard"),
   work_shift_id: z.string().optional().nullable(),
 });
 
@@ -329,6 +329,9 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                         <SelectItem value="3h_diurno">3h Diurno (08:00-11:00)</SelectItem>
                         <SelectItem value="seg_qui_sab_7_16_sex_7_11">
                           SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00
+                        </SelectItem>
+                        <SelectItem value="seg_sex_07_16_sab_08_12">
+                          SEG-SEX 07:00-16:00 | SAB 08:00-12:00
                         </SelectItem>
                       </SelectContent>
                     </Select>
