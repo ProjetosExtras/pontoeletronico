@@ -28,7 +28,17 @@ type Employee = {
   job_title?: string | null;
   admission_date?: string | null;
   pin?: string | null;
-  shift_type?: '12x36' | 'standard' | '12x36_noturno' | '3h_diurno';
+  shift_type?:
+    | "standard"
+    | "12x36"
+    | "12x36_noturno"
+    | "3h_diurno"
+    | "standard_09_18"
+    | "seg_qui_sab_7_16_sex_7_11"
+    | "seg_sex_07_16_sab_08_12"
+    | "4h_matutino"
+    | "seg_sex_08_11"
+    | "seg_sex_08_12";
 };
 
 const Employees = () => {
@@ -181,21 +191,76 @@ const Employees = () => {
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell>{employee.code}</TableCell>
                     <TableCell>{employee.cpf || '-'}</TableCell>
-                    <TableCell>{employee.job_title || '-'}</TableCell>
+                    <TableCell>{employee.job_title || "-"}</TableCell>
                     <TableCell>
-                        {employee.shift_type === '12x36' ? (
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">12x36</Badge>
-                        ) : employee.shift_type === '12x36_noturno' ? (
-                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">12x36 Noturno</Badge>
-                        ) : employee.shift_type === '3h_diurno' ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">3h Diurno</Badge>
-                        ) : employee.shift_type === 'seg_sex_08_11' ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">SEG-SEX 08:00-11:00</Badge>
-                        ) : employee.shift_type === 'seg_sex_08_12' ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">SEG-SEX 08:00-12:00</Badge>
-                        ) : (
-                            <Badge variant="outline">Normal</Badge>
-                        )}
+                      {employee.shift_type === "12x36" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-purple-100 text-purple-800 hover:bg-purple-100"
+                        >
+                          12x36
+                        </Badge>
+                      ) : employee.shift_type === "12x36_noturno" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100"
+                        >
+                          12x36 Noturno
+                        </Badge>
+                      ) : employee.shift_type === "3h_diurno" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          3h Diurno (08:00-11:00)
+                        </Badge>
+                      ) : employee.shift_type === "standard_09_18" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          Padrão (09:00-18:00)
+                        </Badge>
+                      ) : employee.shift_type === "seg_sex_08_11" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          SEG-SEX 08:00-11:00
+                        </Badge>
+                      ) : employee.shift_type === "seg_sex_08_12" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          SEG-SEX 08:00-12:00
+                        </Badge>
+                      ) : employee.shift_type === "seg_qui_sab_7_16_sex_7_11" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00
+                        </Badge>
+                      ) : employee.shift_type === "seg_sex_07_16_sab_08_12" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          SEG-SEX 07:00-16:00 | SAB 08:00-12:00
+                        </Badge>
+                      ) : employee.shift_type === "4h_matutino" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          4H MATUTINO (08:00-12:00)
+                        </Badge>
+                      ) : employee.shift_type === "standard" ? (
+                        <Badge variant="outline">Padrão (Seg-Sex)</Badge>
+                      ) : (
+                        <Badge variant="outline">Normal</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                         <Button 
