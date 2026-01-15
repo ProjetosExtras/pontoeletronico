@@ -359,10 +359,18 @@ const TimeClock = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-red-500 hover:bg-red-600">
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+            <Button 
+                variant="destructive" 
+                onClick={() => {
+                    if (entryToDelete) {
+                        handleDeleteEntry(entryToDelete);
+                    }
+                }}
+                disabled={loading}
+            >
+              {loading ? "Excluindo..." : "Excluir"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
