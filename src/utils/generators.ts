@@ -444,9 +444,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10')) {
+            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31')) {
                 is12x36 = true;
-                isNightShift = empCode === '10';
+                isNightShift = empCode === '10' || empCode === '31';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -726,7 +726,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '10') {
+                    if (empCode === '12' || empCode === '10' || empCode === '31') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
