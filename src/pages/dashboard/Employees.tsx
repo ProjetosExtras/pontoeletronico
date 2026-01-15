@@ -189,6 +189,8 @@ const Employees = () => {
                             <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100">12x36 Noturno</Badge>
                         ) : employee.shift_type === '3h_diurno' ? (
                             <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">3h Diurno</Badge>
+                        ) : employee.shift_type === 'seg_sex_08_11' ? (
+                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">SEG-SEX 08:00-11:00</Badge>
                         ) : (
                             <Badge variant="outline">Normal</Badge>
                         )}
