@@ -394,6 +394,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let isSegSex716Sab812 = false;
             let is4hMorning = false;
             let isSegSex08_11 = false;
+            let isSegSex08_12 = false;
             let isCustomWeekly = false;
             let customSchedule: any = null;
             let customShiftName = "";
@@ -409,6 +410,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     is3hMorning = true;
                 } else if (shiftTypeOverride === 'seg_sex_08_11') {
                     isSegSex08_11 = true;
+                } else if (shiftTypeOverride === 'seg_sex_08_12') {
+                    isSegSex08_12 = true;
                 } else if (shiftTypeOverride === 'standard_09_18') {
                     isStandard0918 = true;
                 } else if (shiftTypeOverride === 'standard') {
@@ -442,6 +445,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegSex716Sab812 = empData.shift_type === 'seg_sex_07_16_sab_08_12';
                 is4hMorning = empData.shift_type === '4h_matutino';
                 isSegSex08_11 = empData.shift_type === 'seg_sex_08_11';
+                isSegSex08_12 = empData.shift_type === 'seg_sex_08_12';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -521,9 +525,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                                     ? '3H DIURNO' 
                                     : (isSegSex08_11 
                                         ? 'SEG-SEX 08:00-11:00' 
-                                        : (isStandard0918 || isId3 
-                                            ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' 
-                                            : 'NORMAL')))))));
+                                        : (isSegSex08_12
+                                            ? 'SEG-SEX 08:00-12:00'
+                                            : (isStandard0918 || isId3 
+                                                ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' 
+                                                : 'NORMAL'))))))));
             
             let scheduleRows = '';
             if (is12x36) {
@@ -568,7 +574,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>SEX</td><td>07:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
                     `<tr><td>SAB</td><td>07:00</td><td>12:00</td><td>13:00</td><td>16:00</td></tr>`
                  ].join('');
-            } else if (is4hMorning) {
+            } else if (is4hMorning || isSegSex08_12) {
                  scheduleRows = [
                     `<tr><td>SEG</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
                     `<tr><td>TER</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
@@ -773,7 +779,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     }
                 } else if (isSegQuiSab716Sex711) {
                     expectedStart = '07:00';
-                } else if (is4hMorning) {
+                } else if (is4hMorning || isSegSex08_12) {
                     expectedStart = '08:00';
                 } else if (isSegSex08_11) {
                     expectedStart = '08:00';
@@ -814,6 +820,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else expectedMinutes = 0;
                 } else if (isSegSex08_11) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+                    else expectedMinutes = 0;
+                } else if (isSegSex08_12) {
+                    if (dow >= 1 && dow <= 5) expectedMinutes = 240;
                     else expectedMinutes = 0;
                 } else {
                     if (dow === 0) {
