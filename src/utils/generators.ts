@@ -464,6 +464,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
+            if (!hasExplicitConfig && (empCode === '19' || empCode === '20')) {
+                isSegDom0630_1550 = true;
+                is12x36 = false;
+            }
+
             if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22')) {
                 is12x36 = true;
                 isNightShift = empCode === '10' || empCode === '31';
