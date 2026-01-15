@@ -521,6 +521,19 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                  scheduleRows = dayLabels.map((label, i) => {
                      const cfg = customSchedule[String(i)];
                      if (!cfg || !cfg.start || !cfg.end) return '';
+                     
+                     // Check duration to decide rendering layout
+                     const [h1, m1] = cfg.start.split(':').map(Number);
+                     const [h2, m2] = cfg.end.split(':').map(Number);
+                     let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                     if (mins < 0) mins += 1440;
+
+                     // If shift is 6h or less, render as Entry 1 / Exit 1 (Continuous)
+                     if (mins <= 360) {
+                        return `<tr><td>${label}</td><td>${cfg.start}</td><td>${cfg.end}</td><td> - </td><td> - </td></tr>`;
+                     }
+                     
+                     // If shift is longer, render as Entry 1 / Exit 2 (Split/Long)
                      return `<tr><td>${label}</td><td>${cfg.start}</td><td> - </td><td> - </td><td>${cfg.end}</td></tr>`;
                  }).join('');
             } else if (isSegSex716Sab812) {
