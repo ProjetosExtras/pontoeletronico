@@ -448,16 +448,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            // Configuração específica para ID 33 (Fallback se não configurado no cadastro)
-            if (!hasExplicitConfig && empCode === '33') {
-                isSegSex716Sab812 = true;
-                is12x36 = false;
-                isNightShift = false;
-                is3hMorning = false;
-                isStandard0918 = false;
-                isSegQuiSab716Sex711 = false;
-                isCustomWeekly = false;
-            }
+
 
             if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11')) {
                 is12x36 = true;
