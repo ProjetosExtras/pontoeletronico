@@ -444,9 +444,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegQuiSab716Sex711 = true;
             }
 
-            if (!hasExplicitConfig && (empCode === '30' || empCode === '12')) {
+            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10')) {
                 is12x36 = true;
-                isNightShift = false;
+                isNightShift = empCode === '10';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -576,7 +576,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 <style>
                     .wrapper { font-family: 'Arial', sans-serif; font-size: 9px; color: #000; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 5px; table-layout: fixed; }
-                    th, td { border: 1px solid #ccc; padding: 2px 3px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+                    th, td { border: 1px solid #ccc; padding: 3px 4px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; vertical-align: middle; }
                     .header-section { display: flex; gap: 15px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
                     .info-left { flex: 2; }
                     .info-right { flex: 1; }
@@ -585,8 +585,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     .info-value { flex: 1; padding: 1px 4px; display: flex; align-items: center; font-size: 9px; }
                     .section-title { font-weight: bold; background-color: #e0e0e0; padding: 3px; border: 1px solid #ccc; text-align: center; font-size: 10px; }
                     .main-table th { background-color: #333; color: white; text-align: center; font-size: 8px; padding: 4px 2px; }
-                    .main-table td { text-align: center; font-size: 8px; height: 14px; padding: 2px; }
-                    .row-day { background-color: #fff; text-align: left !important; padding-left: 5px !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .main-table td { text-align: center; font-size: 8px; height: 16px; padding: 3px 2px; line-height: 1.3; }
+                    .row-day { background-color: #fff; text-align: center !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 16px; line-height: 16px; }
                     .weekend { background-color: #f5f5f5; }
                     .totals-row td { background-color: #f0f0f0; font-weight: bold; border-top: 2px solid #000; }
                     .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
@@ -726,7 +726,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12') {
+                    if (empCode === '12' || empCode === '10') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
