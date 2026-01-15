@@ -50,6 +50,7 @@ const formSchema = z.object({
     "standard_09_18",
     "seg_qui_sab_7_16_sex_7_11",
     "seg_sex_07_16_sab_08_12",
+    "seg_sex_08_18_sab_08_12",
     "4h_matutino",
     "seg_sex_08_11",
     "seg_sex_08_12",
