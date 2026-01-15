@@ -42,7 +42,18 @@ const formSchema = z.object({
     message: "Data inválida",
   }),
   pin: z.string().optional(),
-  shift_type: z.enum(["standard", "12x36", "12x36_noturno", "3h_diurno", "standard_09_18", "seg_qui_sab_7_16_sex_7_11", "seg_sex_07_16_sab_08_12"]).default("standard"),
+  shift_type: z.enum([
+    "standard",
+    "12x36",
+    "12x36_noturno",
+    "3h_diurno",
+    "standard_09_18",
+    "seg_qui_sab_7_16_sex_7_11",
+    "seg_sex_07_16_sab_08_12",
+    "4h_matutino",
+    "seg_sex_08_11",
+    "seg_sex_08_12",
+  ]).default("standard"),
   work_shift_id: z.string().optional().nullable(),
 });
 
@@ -315,7 +326,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo de Escala (Padrão)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione a escala" />
