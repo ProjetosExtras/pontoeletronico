@@ -558,11 +558,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                  ].join('');
             } else if (is4hMorning) {
                  scheduleRows = [
-                    `<tr><td>SEG</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
-                    `<tr><td>TER</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
-                    `<tr><td>QUA</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
-                    `<tr><td>QUI</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`,
-                    `<tr><td>SEX</td><td>08:00</td><td> - </td><td> - </td><td>12:00</td></tr>`
+                    `<tr><td>SEG</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
+                    `<tr><td>TER</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
+                    `<tr><td>QUA</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
+                    `<tr><td>QUI</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`,
+                    `<tr><td>SEX</td><td>08:00</td><td>12:00</td><td> - </td><td> - </td></tr>`
                  ].join('');
             } else if (is3hMorning) {
                  scheduleRows = [
@@ -934,6 +934,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                          unusedEntries.splice(morningExitIndex, 1);
                          usedIds.add(saida2.id);
                      }
+                }
+
+                // FIX: For short shifts (4h/3h), move saida2 to saida1 if we have just 2 punches
+                if ((is4hMorning || is3hMorning) && entrada1 && saida2 && !saida1 && !entrada2) {
+                     saida1 = saida2;
+                     saida2 = undefined;
                 }
 
                 const t1 = fmt(entrada1);
