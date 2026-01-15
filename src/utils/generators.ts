@@ -609,13 +609,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                  ].join('');
             } else if (isSegDom0630_1550) {
                  scheduleRows = [
-                    `<tr><td>SEG</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>TER</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>QUA</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>QUI</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>SEX</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>SAB</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
-                    `<tr><td>DOM</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`
+                    `<tr><td>SEG</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>TER</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>QUA</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>QUI</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>SEX</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>SAB</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`,
+                    `<tr><td>DOM</td><td>06:30</td><td>12:00</td><td>14:00</td><td>15:50</td></tr>`
                  ].join('');
             } else if (isStandard0918 || isId3) {
                  scheduleRows = [
@@ -843,7 +843,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     if (dow >= 1 && dow <= 5) expectedMinutes = 240;
                     else expectedMinutes = 0;
                 } else if (isSegDom0630_1550) {
-                    expectedMinutes = 560; // 06:30-15:50 (9h20) contínuo
+                    expectedMinutes = 440; // 06:30-15:50 com 2h de intervalo (7h20)
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;
