@@ -53,6 +53,7 @@ const formSchema = z.object({
     "4h_matutino",
     "seg_sex_08_11",
     "seg_sex_08_12",
+    "seg_dom_0630_1550",
   ]).default("standard"),
   work_shift_id: z.string().optional().nullable(),
 });
@@ -347,6 +348,7 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
                           SEG-SEX 07:00-16:00 | SAB 08:00-12:00
                         </SelectItem>
                         <SelectItem value="4h_matutino">4H MATUTINO (08:00-12:00)</SelectItem>
+                        <SelectItem value="seg_dom_0630_1550">SEG-DOM 06:30-15:50</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

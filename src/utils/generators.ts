@@ -395,6 +395,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let is4hMorning = false;
             let isSegSex08_11 = false;
             let isSegSex08_12 = false;
+            let isSegDom0630_1550 = false;
             let isCustomWeekly = false;
             let customSchedule: any = null;
             let customShiftName = "";
@@ -412,6 +413,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     isSegSex08_11 = true;
                 } else if (shiftTypeOverride === 'seg_sex_08_12') {
                     isSegSex08_12 = true;
+                } else if (shiftTypeOverride === 'seg_dom_0630_1550') {
+                    isSegDom0630_1550 = true;
                 } else if (shiftTypeOverride === 'standard_09_18') {
                     isStandard0918 = true;
                 } else if (shiftTypeOverride === 'standard') {
@@ -446,6 +449,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is4hMorning = empData.shift_type === '4h_matutino';
                 isSegSex08_11 = empData.shift_type === 'seg_sex_08_11';
                 isSegSex08_12 = empData.shift_type === 'seg_sex_08_12';
+                isSegDom0630_1550 = empData.shift_type === 'seg_dom_0630_1550';
             } else {
                 // Heuristic fallback
                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
@@ -527,9 +531,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                                         ? 'SEG-SEX 08:00-11:00' 
                                         : (isSegSex08_12
                                             ? 'SEG-SEX 08:00-12:00'
-                                            : (isStandard0918 || isId3 
-                                                ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' 
-                                                : 'NORMAL'))))))));
+                                            : (isSegDom0630_1550
+                                                ? 'SEG-DOM 06:30-15:50'
+                                                : (isStandard0918 || isId3 
+                                                    ? 'PADRÃO (SEG-SEX 09:00-18:00, SAB 08:00-17:00)' 
+                                                    : 'NORMAL')))))))));
             
             let scheduleRows = '';
             if (is12x36) {
@@ -600,6 +606,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     `<tr><td>QUA</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
                     `<tr><td>QUI</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`,
                     `<tr><td>SEX</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`
+                 ].join('');
+            } else if (isSegDom0630_1550) {
+                 scheduleRows = [
+                    `<tr><td>SEG</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>TER</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>QUA</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>QUI</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>SEX</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>SAB</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`,
+                    `<tr><td>DOM</td><td>06:30</td><td> - </td><td> - </td><td>15:50</td></tr>`
                  ].join('');
             } else if (isStandard0918 || isId3) {
                  scheduleRows = [
@@ -783,6 +799,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     expectedStart = '08:00';
                 } else if (isSegSex08_11) {
                     expectedStart = '08:00';
+                } else if (isSegDom0630_1550) {
+                    expectedStart = '06:30';
                 }
                 
                 let expectedMinutes = 0;
@@ -824,6 +842,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 } else if (isSegSex08_12) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 240;
                     else expectedMinutes = 0;
+                } else if (isSegDom0630_1550) {
+                    expectedMinutes = 560; // 06:30-15:50 (9h20) contínuo
                 } else {
                     if (dow === 0) {
                         expectedMinutes = 0;

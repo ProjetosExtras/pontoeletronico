@@ -38,7 +38,8 @@ type Employee = {
     | "seg_sex_07_16_sab_08_12"
     | "4h_matutino"
     | "seg_sex_08_11"
-    | "seg_sex_08_12";
+    | "seg_sex_08_12"
+    | "seg_dom_0630_1550";
 };
 
 const Employees = () => {
@@ -248,6 +249,13 @@ const Employees = () => {
                           className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
                         >
                           SEG-SEX 07:00-16:00 | SAB 08:00-12:00
+                        </Badge>
+                      ) : employee.shift_type === "seg_dom_0630_1550" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                        >
+                          SEG-DOM 06:30-15:50
                         </Badge>
                       ) : employee.shift_type === "4h_matutino" ? (
                         <Badge
