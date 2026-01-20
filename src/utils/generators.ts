@@ -491,6 +491,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegSex716Sab812 = false;
             }
 
+            // Configuração específica para ID 32: Escala 12x36 alternada, mas com carga horária de 3h Diurno (08:00-11:00)
+            let is3hAlternating = false;
+            if (empCode === '32') {
+                is12x36 = false; // Desativa 12x36 padrão para não conflitar
+                is3hAlternating = true;
+            }
+
             const hasSaturdayWork = workedDayKeys.some((key) => {
                 const d = new Date(`${key}T00:00:00`);
                 return getDay(d) === 6;
@@ -501,7 +508,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             // FIX: Use admission date as stable anchor for 12x36 shifts to prevent phase inversion
             // when employee misses the first shift of the month.
-            if (is12x36 || is3hMorning) {
+            if (is12x36 || is3hMorning || is3hAlternating) {
                 if (empData.admission_date) {
                     const admStr = String(empData.admission_date).split('T')[0];
                     anchorDay = new Date(`${admStr}T00:00:00`);
@@ -510,8 +517,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     anchorDay = new Date('2024-01-01T00:00:00');
                 }
 
-                // Ajuste de inversão para ID 30 e 12
-                if (empCode === '30' || empCode === '12') {
+                // Ajuste de inversão para ID 30, 32 e 12
+                if (empCode === '30' || empCode === '12' || empCode === '32') {
                      anchorDay = addDays(anchorDay, 1);
                 }
             }
@@ -535,6 +542,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let scheduleLabel = '';
             if (is12x36) {
                 scheduleLabel = isNightShift ? '12X36 NOTURNO (19:00-07:00)' : '12X36 (07:00-19:00)';
+            } else if (is3hAlternating) {
+                scheduleLabel = '3H DIURNO - ESCALA ALTERNADA (08:00-11:00)';
             } else if (isCustomWeekly) {
                 scheduleLabel = customShiftName.toUpperCase();
             } else if (isSegSex716Sab812) {
@@ -564,6 +573,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                  scheduleRows = isNightShift 
                  ? `<tr><td>ESC</td><td>19:00</td><td>00:00</td><td>01:00</td><td>07:00</td></tr>`
                  : `<tr><td>ESC</td><td>07:00</td><td>12:00</td><td>13:00</td><td>19:00</td></tr>`;
+            } else if (is3hAlternating) {
+                 scheduleRows = `<tr><td>ESC</td><td>08:00</td><td> - </td><td> - </td><td>11:00</td></tr>`;
             } else if (isCustomWeekly && customSchedule) {
                  const dayLabels = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
                  scheduleRows = dayLabels.map((label, i) => {
@@ -860,11 +871,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22') {
+                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
                     }
+                } else if (is3hAlternating) {
+                    // Lógica de dias alternados para 3h Diurno
+                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
                 } else if (is3hMorning) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
                     else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
@@ -1028,7 +1042,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 }
 
                 // FIX: For short shifts (4h/3h), move saida2 to saida1 if we have just 2 punches
-                if ((is4hMorning || is3hMorning || isSegSex08_12) && entrada1 && saida2 && !saida1 && !entrada2) {
+                if ((is4hMorning || is3hMorning || isSegSex08_12 || is3hAlternating) && entrada1 && saida2 && !saida1 && !entrada2) {
                      saida1 = saida2;
                      saida2 = undefined;
                 }
