@@ -472,6 +472,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 isSegSex08_18Sab812 = true;
             }
 
+            if (!hasExplicitConfig && empCode === '17') {
+                isSegSex08_12 = true;
+            }
+
             if (!hasExplicitConfig && (empCode === '18' || empCode === '19' || empCode === '20')) {
                 isSegDom0630_1550 = true;
                 is12x36 = false;
@@ -1024,7 +1028,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 }
 
                 // FIX: For short shifts (4h/3h), move saida2 to saida1 if we have just 2 punches
-                if ((is4hMorning || is3hMorning) && entrada1 && saida2 && !saida1 && !entrada2) {
+                if ((is4hMorning || is3hMorning || isSegSex08_12) && entrada1 && saida2 && !saida1 && !entrada2) {
                      saida1 = saida2;
                      saida2 = undefined;
                 }
