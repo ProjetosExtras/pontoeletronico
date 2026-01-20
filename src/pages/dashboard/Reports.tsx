@@ -2,10 +2,11 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, FileText, Loader2 } from "lucide-react";
-import { generateAFD, generateAEJ } from "@/utils/generators";
+import { generateAFD, generateAEJ, generateEspelhoPDF } from "@/utils/generators";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EspelhoPontoDialog } from "@/components/dashboard/EspelhoPontoDialog";
+import { format } from "date-fns";
 
 const Reports = () => {
   const [loading, setLoading] = useState<string | null>(null);
@@ -24,6 +25,20 @@ const Reports = () => {
         setLoading(null);
     }
   };
+
+  const handleGenerateAllEspelhos = async () => {
+    setLoading('ESPELHO_ALL');
+    try {
+        const currentMonth = format(new Date(), 'yyyy-MM');
+        await generateEspelhoPDF('all', currentMonth, 'auto');
+        toast.success("Espelhos de Ponto (Todos - Mês Atual) gerados com sucesso!");
+    } catch (error: any) {
+        toast.error(`Erro ao gerar PDF: ${error.message}`);
+    } finally {
+        setLoading(null);
+    }
+  };
+
 
   return (
     <DashboardLayout>
@@ -93,7 +108,18 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                     Relatório detalhado em PDF para assinatura do colaborador.
                 </p>
-                <EspelhoPontoDialog />
+                <div className="space-y-3">
+                    <EspelhoPontoDialog />
+                    <Button 
+                        className="w-full" 
+                        variant="secondary"
+                        onClick={handleGenerateAllEspelhos}
+                        disabled={loading === 'ESPELHO_ALL'}
+                    >
+                        {loading === 'ESPELHO_ALL' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        Baixar Todos (Mês Atual)
+                    </Button>
+                </div>
             </CardContent>
         </Card>
       </div>

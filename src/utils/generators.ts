@@ -711,7 +711,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     .section-title { font-weight: bold; background-color: #e0e0e0; padding: 3px; border: 1px solid #ccc; text-align: center; font-size: 10px; }
                     .main-table th { background-color: #333; color: white; text-align: center; font-size: 8px; padding: 4px 2px; }
                     .main-table td { text-align: center; font-size: 8px; height: 16px; padding: 3px 2px; line-height: 1.3; }
-                    .row-day { background-color: #fff; text-align: center !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 16px; line-height: 16px; }
+                    .row-day { background-color: #fff; text-align: left !important; padding-left: 5px !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 16px; line-height: 16px; }
                     .weekend { background-color: #f5f5f5; }
                     .totals-row td { background-color: #f0f0f0; font-weight: bold; border-top: 2px solid #000; }
                     .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
