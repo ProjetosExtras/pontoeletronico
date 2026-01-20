@@ -492,7 +492,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             // Configuração específica para ID 32: Escala 12x36 alternada, mas com carga horária de 3h Diurno (08:00-11:00)
-            let is3hAlternating = false;
+            let is3hAlternating = empData.shift_type === '3h_alternado';
             if (empCode === '32') {
                 is12x36 = false; // Desativa 12x36 padrão para não conflitar
                 is3hAlternating = true;
@@ -543,7 +543,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             if (is12x36) {
                 scheduleLabel = isNightShift ? '12X36 NOTURNO (19:00-07:00)' : '12X36 (07:00-19:00)';
             } else if (is3hAlternating) {
-                scheduleLabel = '3H DIURNO - ESCALA ALTERNADA (08:00-11:00)';
+                scheduleLabel = '3H DIURNO - ESCALA ALTERNADA (08:00-11:00) - DOMINGOS FOLGA';
             } else if (isCustomWeekly) {
                 scheduleLabel = customShiftName.toUpperCase();
             } else if (isSegSex716Sab812) {
@@ -878,7 +878,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     }
                 } else if (is3hAlternating) {
                     // Lógica de dias alternados para 3h Diurno
-                    expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
+                    // Se for domingo (0), folga forçada
+                    if (dow === 0) {
+                         expectedMinutes = 0;
+                    } else {
+                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
+                    }
                 } else if (is3hMorning) {
                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
                     else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
