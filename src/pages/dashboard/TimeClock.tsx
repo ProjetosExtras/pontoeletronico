@@ -42,7 +42,7 @@ type TimeEntryRow = {
   location_lat?: number | null;
   location_long?: number | null;
   nsr?: number | null;
-  employees?: { name?: string | null } | null;
+  employees?: { name?: string | null; code?: string | null } | null;
   justification?: string | null;
   employee_id?: string;
   is_manual?: boolean;
@@ -96,7 +96,7 @@ const TimeClock = () => {
             .from('time_entries')
             .select(`
                 *,
-                employees ( name )
+                employees ( name, code )
             `)
             .eq('company_id', profile.company_id)
             .order('timestamp', { ascending: false })
@@ -167,6 +167,66 @@ const TimeClock = () => {
 
         const uniqueEntries = cleanedEntries;
 
+        // Apply night shift display logic (Entry, Break, Return, Exit) for sequence of 4
+        // IDs: 10, 14, 26, 31
+        const targetCodes = ['10', '14', '26', '31'];
+        
+        // Group by employee and shift (roughly)
+        // We will process the full uniqueEntries list (descending)
+        // Re-sort ascending to find sequences easily, then restore
+        const sortedAsc = [...uniqueEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        
+        const processedEntries: TimeEntryRow[] = [];
+        let buffer: TimeEntryRow[] = [];
+        
+        for (const entry of sortedAsc) {
+             const empCode = entry.employees?.code;
+             
+             // If not target employee, just push
+             if (!empCode || !targetCodes.includes(empCode)) {
+                 processedEntries.push(entry);
+                 continue;
+             }
+
+             // Check if entry belongs to current buffer (shift)
+             // Buffer belongs to a shift if time difference is small (< 12h from first entry of buffer)
+             // or < 8h from last entry
+             if (buffer.length === 0) {
+                 buffer.push(entry);
+             } else {
+                 const lastInBuffer = buffer[buffer.length - 1];
+                 const diffHours = (new Date(entry.timestamp).getTime() - new Date(lastInBuffer.timestamp).getTime()) / (1000 * 60 * 60);
+                 
+                 if (diffHours < 14) { // 12x36 shift usually fits within 14h window (19h to 07h+delay)
+                     buffer.push(entry);
+                 } else {
+                     // Flush buffer
+                     if (buffer.length === 4) {
+                         // Assign types: Entrada, Intervalo, Retorno, Saida
+                         buffer[0].type = 'entrada';
+                         buffer[1].type = 'intervalo';
+                         buffer[2].type = 'retorno';
+                         buffer[3].type = 'saida';
+                     }
+                     processedEntries.push(...buffer);
+                     buffer = [entry];
+                 }
+             }
+        }
+        // Flush remaining
+        if (buffer.length > 0) {
+            if (buffer.length === 4) {
+                 buffer[0].type = 'entrada';
+                 buffer[1].type = 'intervalo';
+                 buffer[2].type = 'retorno';
+                 buffer[3].type = 'saida';
+            }
+            processedEntries.push(...buffer);
+        }
+
+        // Restore descending sort
+        const finalEntries = processedEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
         // If a specific employee and month are selected (and no specific day), fill in missing days
         if (selectedEmployee && selectedEmployee !== 'all' && selectedMonth && !selectedDay) {
             const [year, month] = selectedMonth.split('-').map(Number);
@@ -178,7 +238,7 @@ const TimeClock = () => {
             const empName = employees.find(e => e.id === selectedEmployee)?.name || 'Desconhecido';
 
             const entriesByDate = new Map<string, TimeEntryRow[]>();
-            uniqueEntries.forEach(e => {
+            finalEntries.forEach(e => {
                 const dateKey = format(new Date(e.timestamp), 'yyyy-MM-dd');
                 if (!entriesByDate.has(dateKey)) entriesByDate.set(dateKey, []);
                 entriesByDate.get(dateKey)!.push(e);
@@ -205,13 +265,50 @@ const TimeClock = () => {
             });
             setEntries(fullList);
         } else {
-            setEntries(uniqueEntries);
+            setEntries(finalEntries);
         }
     } catch (error) {
         console.error("Error fetching entries:", error);
     } finally {
         setLoading(false);
     }
+  };
+
+  const getDisplayType = (entry: TimeEntryRow) => {
+      if (entry.type === 'empty') return 'empty';
+
+      // Priority: If the entry type has been explicitly set to 'intervalo' or 'retorno' (e.g. by 4-markings logic),
+      // we respect it and do NOT override based on hour.
+      if (entry.type === 'intervalo' || entry.type === 'retorno') {
+          return entry.type;
+      }
+      
+      // Check for specific night shift employees (IDs 10, 14, 26, 31)
+      const targetCodes = ['10', '14', '26', '31'];
+      const empCode = entry.employees?.code;
+      
+      if (empCode && targetCodes.includes(empCode)) {
+          const date = new Date(entry.timestamp);
+          const hour = date.getHours();
+          
+          // If it's around 7 AM (06:00 - 09:00), force it to be SAIDA
+          if (hour >= 6 && hour < 9) {
+              return 'saida';
+          }
+          
+          // If it's around 7 PM (18:00 - 21:00), force it to be ENTRADA
+          if (hour >= 18 && hour < 21) {
+              return 'entrada';
+          }
+
+          // Break window (23:00 - 05:00) - Map Saida->Intervalo and Entrada->Retorno
+          if (hour >= 23 || hour < 5) {
+              if (entry.type === 'saida') return 'intervalo';
+              if (entry.type === 'entrada') return 'retorno';
+          }
+      }
+      
+      return entry.type;
   };
 
   const getBadgeColor = (type: string) => {
@@ -462,11 +559,13 @@ const TimeClock = () => {
                               <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">Nenhum registro encontrado.</TableCell>
                           </TableRow>
                       ) : (
-                          entries.map((entry) => (
-                              <TableRow key={entry.id} className={entry.type === 'empty' ? 'bg-gray-50/50' : ''}>
+                          entries.map((entry) => {
+                              const displayType = getDisplayType(entry);
+                              return (
+                              <TableRow key={entry.id} className={displayType === 'empty' ? 'bg-gray-50/50' : ''}>
                                   <TableCell className="font-medium">{entry.employees?.name || 'Desconhecido'}</TableCell>
                                   <TableCell>
-                                    {entry.type === 'empty' ? (
+                                    {displayType === 'empty' ? (
                                       <span className="text-muted-foreground">{format(new Date(entry.timestamp), 'dd/MM/yyyy')} - Sem marcações</span>
                                     ) : (
                                       <>
@@ -480,12 +579,12 @@ const TimeClock = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                      <Badge className={getBadgeColor(entry.type)}>
-                                        {entry.type === 'empty' ? 'FALTA/FOLGA' : entry.type.toUpperCase()}
+                                      <Badge className={getBadgeColor(displayType)}>
+                                        {displayType === 'empty' ? 'FALTA/FOLGA' : displayType.toUpperCase()}
                                       </Badge>
                                   </TableCell>
                                   <TableCell>
-                                      {entry.type === 'empty' ? '-' : (entry.location_lat ? 'GPS' : 'IP')}
+                                      {displayType === 'empty' ? '-' : (entry.location_lat ? 'GPS' : 'IP')}
                                   </TableCell>
                                   <TableCell className="font-mono text-xs">{entry.nsr || '-'}</TableCell>
                                   <TableCell className="text-right">
@@ -513,7 +612,8 @@ const TimeClock = () => {
                                       </div>
                                   </TableCell>
                               </TableRow>
-                          ))
+                          );
+                        })
                       )}
                   </TableBody>
               </Table>
