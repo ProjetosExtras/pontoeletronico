@@ -277,6 +277,9 @@ const TimeClock = () => {
   const getDisplayType = (entry: TimeEntryRow) => {
       if (entry.type === 'empty') return 'empty';
 
+      // Respeitar marcações manuais (não aplicar lógica automática de turno)
+      if (entry.is_manual) return entry.type;
+
       // Priority: If the entry type has been explicitly set to 'intervalo' or 'retorno' (e.g. by 4-markings logic),
       // we respect it and do NOT override based on hour.
       if (entry.type === 'intervalo' || entry.type === 'retorno') {
