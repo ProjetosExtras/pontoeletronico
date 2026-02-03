@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInCalendarDays, addDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, differenceInCalendarDays, addDays, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -167,7 +167,9 @@ export const generateAEJ = async () => {
             });
 
             // Determine Shift Type
-            const workedDayKeys = Array.from(entriesByDay.keys()).sort();
+            const workedDayKeys = Array.from(entriesByDay.keys())
+                .filter(k => new Date(k + 'T00:00:00') >= startPeriod)
+                .sort();
             const workedDaysCount = workedDayKeys.length;
             const longShiftDaysCount = workedDayKeys.reduce((acc, key) => {
                 const arr = entriesByDay.get(key) || [];
@@ -307,8 +309,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
              .from('time_entries')
             .select('*, employees(name, pis, code, cpf, admission_date, job_title, shift_type, work_shift_id, work_shifts(*))')
             .eq('company_id', profile.company_id)
-             .gte('timestamp', startPeriod.toISOString())
-             .lte('timestamp', endPeriod.toISOString())
+             .gte('timestamp', subDays(startPeriod, 1).toISOString())
+             .lte('timestamp', addDays(endPeriod, 1).toISOString())
              .order('timestamp', { ascending: true });
 
          if (employeeId && employeeId !== 'all') {
@@ -374,7 +376,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 arr.sort((a: TimeEntryRow, b: TimeEntryRow) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             });
 
-            const workedDayKeys = Array.from(entriesByDay.keys()).sort();
+            const workedDayKeys = Array.from(entriesByDay.keys())
+                .filter(k => new Date(k + 'T00:00:00') >= startPeriod)
+                .sort();
             const workedDaysCount = workedDayKeys.length;
             const longShiftDaysCount = workedDayKeys.reduce((acc, key) => {
                 const arr = entriesByDay.get(key) || [];
@@ -481,7 +485,11 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 is12x36 = false;
             }
 
-            if (!hasExplicitConfig && (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24')) {
+            // IDs that are definitely 12x36 (Forced for specific IDs to ensure correctness regardless of DB)
+            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24');
+            const shouldForce12x36 = ['10', '14', '24', '26', '31'].includes(empCode);
+
+            if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
                 isNightShift = empCode === '10' || empCode === '31' || empCode === '14' || empCode === '26';
                 is3hMorning = false;
@@ -524,6 +532,43 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             const consumedEntryIds = new Set<string>();
+
+            // PRE-PROCESS PREVIOUS DAY (Lookahead Logic for Night Shift)
+            // This ensures that if a shift started on the previous day (before startPeriod),
+            // its exit on the first day of startPeriod is "consumed" and doesn't appear as an orphan entry.
+            const prevDay = subDays(startPeriod, 1);
+            const prevDayKey = format(prevDay, 'yyyy-MM-dd');
+            const prevDayEntries = entriesByDay.get(prevDayKey) || [];
+            
+            if (prevDayEntries.length > 0) {
+                 const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
+                 const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
+                 
+                 const lastEntryPrev = normalEntriesPrev.length > 0 ? normalEntriesPrev[normalEntriesPrev.length - 1] : null;
+                 const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
+                 
+                 const seemsIncompletePrev = lastEntryPrev && (
+                     (lastEntryPrev.type === 'entrada' || lastEntryPrev.type === 'retorno') || 
+                     (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo')
+                 );
+
+                 const shouldLookAheadPrev = isNightShift || (lastHourPrev >= 18 && seemsIncompletePrev);
+                 
+                 if (shouldLookAheadPrev) {
+                     const nextDay = addDays(prevDay, 1);
+                     const nextKey = format(nextDay, 'yyyy-MM-dd');
+                     const nextDayEntries = entriesByDay.get(nextKey) || [];
+                     
+                     const nextDayShiftEntries = nextDayEntries.filter(e => {
+                         const h = new Date(e.timestamp).getHours();
+                         return h < 14; 
+                     });
+
+                     if (nextDayShiftEntries.length > 0) {
+                         nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
+                     }
+                 }
+            }
 
             // Info Rows Helper
             const renderInfoRow = (label: string, value: string) => `
