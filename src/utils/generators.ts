@@ -486,8 +486,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             // IDs that are definitely 12x36 (Forced for specific IDs to ensure correctness regardless of DB)
-            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24');
-            const shouldForce12x36 = ['10', '14', '24', '26', '31'].includes(empCode);
+            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25');
+            const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
@@ -916,7 +916,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '24') {
+                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '24' || empCode === '25') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
