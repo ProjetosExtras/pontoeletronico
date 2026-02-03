@@ -1286,7 +1286,16 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
         }
 
-        doc.save(`Espelho_Ponto_${format(new Date(), 'yyyy-MM')}.pdf`);
+        let filename = `Espelho_Ponto_${format(startPeriod, 'yyyy-MM')}.pdf`;
+        if (employeesMap.size === 1) {
+            const [empName] = employeesMap.keys();
+            const monthStr = format(startPeriod, 'MMMM_yyyy', { locale: ptBR });
+            // Remove characters that might be invalid in filenames and replace spaces with underscores
+            const safeName = empName.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim().replace(/\s+/g, '_');
+            filename = `${safeName}_${monthStr}.pdf`;
+        }
+
+        doc.save(filename);
 
     } catch (error: unknown) {
         console.error("Erro ao gerar PDF:", error);
