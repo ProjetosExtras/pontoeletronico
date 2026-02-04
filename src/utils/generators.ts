@@ -797,7 +797,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             // Inline Styles for html2canvas
             const styles = `
                 <style>
-                    .wrapper { font-family: 'Arial', sans-serif; font-size: 9px; color: #000; }
+                    .wrapper { font-family: 'Arial', sans-serif; font-size: 9px; color: #000; min-height: 270mm; position: relative; padding-bottom: 50px; box-sizing: border-box; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 5px; table-layout: fixed; }
                     th, td { border: 1px solid #ccc; padding: 3px 4px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; vertical-align: middle; }
                     .header-section { display: flex; gap: 15px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
@@ -1324,7 +1324,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     </div>
                 </div>
                 ${signatureCode ? `
-                <div style="margin-top: 15px; font-size: 8px; color: #555; text-align: center; border-top: 1px solid #eee; padding-top: 5px;">
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; font-size: 8px; color: #555; text-align: left; border-top: 1px solid #eee; padding-top: 5px;">
                     ASSINATURA ELETRÔNICA DO SISTEMA: <strong>${signatureCode}</strong><br>
                     Documento gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}
                 </div>
@@ -1593,7 +1593,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const isId3 = empCode === '3';
              const isId2 = empCode === '2';
              // Match Espelho: IDs 2 and 3 follow alternating Saturday rules
-             const isSaturdayAlternating = isId2 || isId3;
+             const isSaturdayAlternating = isId2;
              const isSaturdayMorning = empCode === '6';
 
              for (const day of daysInMonth) {
