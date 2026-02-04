@@ -1,11 +1,12 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Clock } from "lucide-react";
 import { generateAFD, generateAEJ, generateEspelhoPDF } from "@/utils/generators";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EspelhoPontoDialog } from "@/components/dashboard/EspelhoPontoDialog";
+import { RelatorioExtrasDialog } from "@/components/dashboard/RelatorioExtrasDialog";
 import { format } from "date-fns";
 
 const Reports = () => {
@@ -119,6 +120,24 @@ const Reports = () => {
                         {loading === 'ESPELHO_ALL' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                         Baixar Todos (Mês Atual)
                     </Button>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-orange-600" />
+                    Relatório de Horas Extras
+                </CardTitle>
+                <CardDescription>Resumo Mensal de Extras</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Relatório consolidado de horas extras por funcionário.
+                </p>
+                <div className="space-y-3">
+                    <RelatorioExtrasDialog />
                 </div>
             </CardContent>
         </Card>

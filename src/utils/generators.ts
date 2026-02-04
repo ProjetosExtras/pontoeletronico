@@ -1369,3 +1369,466 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
         throw error;
     }
 };
+
+export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: string, shiftTypeOverride: string = 'auto') => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+        if (!profile?.company_id) throw new Error("Empresa não encontrada");
+
+        const { data: company } = await supabase.from('companies').select('*').eq('id', profile.company_id).single();
+
+        const [year, month] = monthStr.split('-').map(Number);
+        const startPeriod = new Date(year, month - 1, 1);
+        const endPeriod = endOfMonth(startPeriod);
+        const todayStart = new Date();
+        todayStart.setHours(0,0,0,0);
+
+        let empQuery = supabase
+            .from('employees')
+            .select('*, work_shifts(name, type, schedule_json)')
+            .eq('company_id', profile.company_id)
+            .order('name');
+
+        if (employeeId !== 'all') {
+            empQuery = empQuery.eq('id', employeeId);
+        }
+
+        const { data: employeesRaw } = await empQuery;
+        const employeesList = employeesRaw || [];
+        if (employeesList.length === 0) throw new Error("Nenhum funcionário encontrado.");
+
+        const { data: entriesRaw } = await supabase
+            .from('time_entries')
+            .select('*')
+            .eq('company_id', profile.company_id)
+            .gte('timestamp', subDays(startPeriod, 2).toISOString()) // Fetch extra days for lookahead
+            .lte('timestamp', addDays(endPeriod, 2).toISOString())
+            .order('timestamp', { ascending: true });
+
+        const entries = (entriesRaw as unknown as TimeEntryRow[] | null) || [];
+        const entriesByEmployee = new Map<string, TimeEntryRow[]>();
+        entries.forEach(e => {
+            if (!entriesByEmployee.has(e.employee_id)) {
+                entriesByEmployee.set(e.employee_id, []);
+            }
+            entriesByEmployee.get(e.employee_id)!.push(e);
+        });
+
+        const rows: any[] = [];
+        const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
+
+        // Helper function (same as in generateEspelhoPDF)
+        const calculateNightMinutes = (start: Date, end: Date): number => {
+            let minutes = 0;
+            const current = new Date(start.getTime());
+            const endTime = end.getTime();
+            
+            while (current.getTime() < endTime) {
+                const h = current.getHours();
+                if (h >= 22 || h < 5) {
+                    minutes++;
+                }
+                current.setMinutes(current.getMinutes() + 1);
+            }
+            return Math.round(minutes * (60 / 52.5));
+        };
+
+        for (const emp of employeesList) {
+             const empEntries = entriesByEmployee.get(emp.id) || [];
+             let totalExtras = 0;
+
+             // Map entries by day
+             const entriesByDay = new Map<string, TimeEntryRow[]>();
+             empEntries.forEach((e: TimeEntryRow) => {
+                 const d = new Date(e.timestamp);
+                 const key = format(d, 'yyyy-MM-dd');
+                 if (!entriesByDay.has(key)) entriesByDay.set(key, []);
+                 entriesByDay.get(key)!.push(e);
+             });
+ 
+             entriesByDay.forEach((arr) => {
+                 arr.sort((a: TimeEntryRow, b: TimeEntryRow) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+             });
+
+             const workedDayKeys = Array.from(entriesByDay.keys())
+                 .filter(k => new Date(k + 'T00:00:00') >= startPeriod && new Date(k + 'T00:00:00') <= endPeriod)
+                 .sort();
+             const workedDaysCount = workedDayKeys.length;
+             const longShiftDaysCount = workedDayKeys.reduce((acc, key) => {
+                 const arr = entriesByDay.get(key) || [];
+                 if (arr.length < 2) return acc;
+                 const first = new Date(arr[0].timestamp);
+                 const last = new Date(arr[arr.length - 1].timestamp);
+                 const spanMins = Math.max(0, Math.round((last.getTime() - first.getTime()) / 60000));
+                 return spanMins >= 600 ? acc + 1 : acc;
+             }, 0);
+
+             // --- Shift Determination Logic (Copied from generateEspelhoPDF) ---
+             const empData = emp;
+             const empCode = String(empData.code || '').trim();
+             let is12x36 = false;
+             let isNightShift = false;
+             let is3hMorning = false;
+             let isStandard0918 = false;
+             let isSegQuiSab716Sex711 = false;
+             let isSegSex716Sab812 = false;
+             let isSegSex08_18Sab812 = false;
+             let is4hMorning = false;
+             let isSegSex08_11 = false;
+             let isSegSex08_12 = false;
+             let isSegDom0630_1550 = false;
+             let isCustomWeekly = false;
+             let customSchedule: any = null;
+
+             if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
+                 if (shiftTypeOverride === '12x36') { is12x36 = true; isNightShift = false; }
+                 else if (shiftTypeOverride === '12x36_noturno') { is12x36 = true; isNightShift = true; }
+                 else if (shiftTypeOverride === '3h_diurno') { is3hMorning = true; }
+                 else if (shiftTypeOverride === 'seg_sex_08_11') { isSegSex08_11 = true; }
+                 else if (shiftTypeOverride === 'seg_sex_08_12') { isSegSex08_12 = true; }
+                 else if (shiftTypeOverride === 'seg_dom_0630_1550') { isSegDom0630_1550 = true; }
+                 else if (shiftTypeOverride === 'standard_09_18') { isStandard0918 = true; }
+                 else if (shiftTypeOverride === 'standard') { 
+                    is12x36 = false; 
+                    isNightShift = false; 
+                    // Fallback to work_shifts if available, even if 'standard' is passed
+                    if (empData.work_shifts && empData.work_shift_id) {
+                        const ws = empData.work_shifts;
+                        if (ws.type === '12x36') {
+                            is12x36 = true;
+                            if (ws.schedule_json?.start === '19:00') isNightShift = true;
+                        } else {
+                            isCustomWeekly = true;
+                            customSchedule = ws.schedule_json;
+                        }
+                    }
+                }
+                 else if (shiftTypeOverride === 'seg_qui_sab_7_16_sex_7_11') { isSegQuiSab716Sex711 = true; }
+                 else if (shiftTypeOverride === 'seg_sex_07_16_sab_08_12') { isSegSex716Sab812 = true; }
+                 else if (shiftTypeOverride === 'seg_sex_08_18_sab_08_12') { isSegSex08_18Sab812 = true; }
+                 else if (shiftTypeOverride === '4h_matutino') { is4hMorning = true; }
+             } else if (empData.work_shifts && empData.work_shift_id) {
+                 const ws = empData.work_shifts;
+                 if (ws.type === '12x36') {
+                     is12x36 = true;
+                     if (ws.schedule_json?.start === '19:00') isNightShift = true;
+                 } else {
+                     isCustomWeekly = true;
+                     customSchedule = ws.schedule_json;
+                 }
+             } else if (empData.shift_type) {
+                 is12x36 = empData.shift_type === '12x36' || empData.shift_type === '12x36_noturno';
+                 isNightShift = empData.shift_type === '12x36_noturno';
+                 is3hMorning = empData.shift_type === '3h_diurno';
+                 isStandard0918 = empData.shift_type === 'standard_09_18';
+                 isSegQuiSab716Sex711 = empData.shift_type === 'seg_qui_sab_7_16_sex_7_11';
+                 isSegSex716Sab812 = empData.shift_type === 'seg_sex_07_16_sab_08_12';
+                 isSegSex08_18Sab812 = empData.shift_type === 'seg_sex_08_18_sab_08_12';
+                 is4hMorning = empData.shift_type === '4h_matutino';
+                 isSegSex08_11 = empData.shift_type === 'seg_sex_08_11';
+                 isSegSex08_12 = empData.shift_type === 'seg_sex_08_12';
+                 isSegDom0630_1550 = empData.shift_type === 'seg_dom_0630_1550';
+             } else {
+                 is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
+             }
+
+             const hasExplicitConfig = (shiftTypeOverride && shiftTypeOverride !== 'auto') || (empData.work_shifts && empData.work_shift_id) || (empData.shift_type && empData.shift_type !== 'auto');
+             if (!hasExplicitConfig) {
+                 if (empCode === '21') isSegQuiSab716Sex711 = true;
+                 if (empCode === '9') isSegSex08_18Sab812 = true;
+                 if (empCode === '17') isSegSex08_12 = true;
+                 if (['18', '19', '20'].includes(empCode)) { isSegDom0630_1550 = true; is12x36 = false; }
+             }
+
+             const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25');
+             const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
+             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
+                 is12x36 = true;
+                 isNightShift = ['10', '31', '14', '26'].includes(empCode);
+                 is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
+             }
+
+             let is3hAlternating = empData.shift_type === '3h_alternado';
+             if (empCode === '32') { is12x36 = false; is3hAlternating = true; }
+
+             const hasSaturdayWork = workedDayKeys.some((key) => {
+                 const d = new Date(`${key}T00:00:00`);
+                 return getDay(d) === 6;
+             });
+
+             let anchorDay = workedDayKeys[0] ? new Date(`${workedDayKeys[0]}T00:00:00`) : new Date(startPeriod);
+             if (is12x36 || is3hMorning || is3hAlternating) {
+                 if (empData.admission_date) {
+                     anchorDay = new Date(`${String(empData.admission_date).split('T')[0]}T00:00:00`);
+                 } else if (empCode === '12' || empCode === '30') {
+                     anchorDay = new Date('2024-01-01T00:00:00');
+                 }
+                 if (['30', '12', '32'].includes(empCode)) anchorDay = addDays(anchorDay, 1);
+             }
+
+             const consumedEntryIds = new Set<string>();
+
+             // Pre-process Previous Day for Night Shift Lookahead
+             const prevDay = subDays(startPeriod, 1);
+             const prevDayKey = format(prevDay, 'yyyy-MM-dd');
+             const prevDayEntries = entriesByDay.get(prevDayKey) || [];
+             if (prevDayEntries.length > 0) {
+                 const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
+                 const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
+                 const lastEntryPrev = normalEntriesPrev[normalEntriesPrev.length - 1];
+                 const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
+                 const seemsIncompletePrev = lastEntryPrev && ((lastEntryPrev.type === 'entrada' || lastEntryPrev.type === 'retorno') || (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo'));
+                 
+                 if (isNightShift || (lastHourPrev >= 18 && seemsIncompletePrev)) {
+                     const nextDay = addDays(prevDay, 1);
+                     const nextKey = format(nextDay, 'yyyy-MM-dd');
+                     const nextDayEntries = entriesByDay.get(nextKey) || [];
+                     const lookAheadLimit = isNightShift ? 14 : 6;
+                     const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit);
+                     nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
+                 }
+             }
+
+             const isId3 = empCode === '3';
+             const isId2 = empCode === '2';
+             // Match Espelho: IDs 2 and 3 follow alternating Saturday rules
+             const isSaturdayAlternating = isId2 || isId3;
+             const isSaturdayMorning = empCode === '6';
+
+             for (const day of daysInMonth) {
+                 const key = format(day, 'yyyy-MM-dd');
+                 const dow = getDay(day);
+                 
+                 let dayEntries = entriesByDay.get(key) || [];
+                 dayEntries = dayEntries.filter(e => !consumedEntryIds.has(e.id));
+                 
+                 const hasAnyEntry = dayEntries.length > 0;
+                 const isPast = day.getTime() < todayStart.getTime();
+
+                 // --- Expected Minutes Calculation (Synced with Espelho) ---
+                 let expectedMinutes = 0;
+                 if (isCustomWeekly && customSchedule) {
+                     const cfg = customSchedule[String(dow)];
+                     if (cfg?.start && cfg?.end) {
+                         const [h1, m1] = cfg.start.split(':').map(Number);
+                         const [h2, m2] = cfg.end.split(':').map(Number);
+                         let totalMins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                         if (totalMins < 0) totalMins += 1440;
+                         // Deduct break if > 6h
+                         expectedMinutes = totalMins > 360 ? totalMins - 60 : totalMins;
+                         if (expectedMinutes < 0) expectedMinutes = 0;
+                     }
+                 } else if (isSegSex716Sab812) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 480; // 8h
+                     else if (dow === 6) expectedMinutes = 240; // 4h
+                     else expectedMinutes = 0;
+                 } else if (is4hMorning) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 240;
+                     else expectedMinutes = 0;
+                 } else if (isSegQuiSab716Sex711) {
+                     if (dow >= 1 && dow <= 4) expectedMinutes = 480;
+                     else if (dow === 5) expectedMinutes = 240;
+                     else if (dow === 6) expectedMinutes = 480;
+                     else expectedMinutes = 0;
+                 } else if (is12x36) {
+                     if (['12','32','10','31','13','28','11','26','5','22','14','24','25'].includes(empCode)) {
+                         expectedMinutes = hasAnyEntry ? 660 : 0;
+                     } else {
+                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+                     }
+                 } else if (is3hAlternating) {
+                     if (dow === 0) expectedMinutes = 0;
+                     else expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 180 : 0;
+                 } else if (is3hMorning) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+                     else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
+                     else expectedMinutes = 0;
+                 } else if (isSegSex08_11) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+                     else expectedMinutes = 0;
+                 } else if (isSegSex08_12) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 240;
+                     else expectedMinutes = 0;
+                 } else if (isSegSex08_18Sab812) {
+                     if (dow >= 1 && dow <= 5) expectedMinutes = 480;
+                     else if (dow === 6) expectedMinutes = 240;
+                     else expectedMinutes = 0;
+                 } else if (isSegDom0630_1550) {
+                     expectedMinutes = 440;
+                 } else {
+                     // Default / Standard 09-18
+                     if (dow === 0) {
+                         expectedMinutes = 0;
+                     } else if (dow === 6) {
+                         if (isSaturdayAlternating) {
+                             // Match Espelho: If alternating, expect 8h ONLY if they worked (dayEntries > 0)
+                             expectedMinutes = dayEntries.length > 0 ? 480 : 0;
+                         } else if (isSaturdayMorning) {
+                             expectedMinutes = 240;
+                         } else {
+                             expectedMinutes = hasSaturdayWork ? 240 : 0;
+                         }
+                     } else {
+                         expectedMinutes = 480;
+                     }
+                 }
+                 const shouldWork = expectedMinutes > 0;
+
+                 // --- Entries Processing (Lookahead + Sorting + Deduplication) ---
+                 const hasAbono = dayEntries.some(e => e.type === 'abono');
+                 let normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
+                 const lastEntry = normalEntries[normalEntries.length - 1];
+                 const lastHour = lastEntry ? new Date(lastEntry.timestamp).getHours() : 0;
+                 const seemsIncomplete = lastEntry && ((lastEntry.type === 'entrada' || lastEntry.type === 'retorno') || (normalEntries.length % 2 !== 0 && lastEntry.type !== 'saida' && lastEntry.type !== 'intervalo'));
+                 
+                 let lookedAheadEntries: TimeEntryRow[] = [];
+                 if ((isNightShift || (lastHour >= 18 && seemsIncomplete)) && normalEntries.length > 0) {
+                     const nextDay = addDays(day, 1);
+                     const nextKey = format(nextDay, 'yyyy-MM-dd');
+                     const nextDayEntries = entriesByDay.get(nextKey) || [];
+                     const lookAheadLimit = isNightShift ? 14 : 6;
+                     const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit && !consumedEntryIds.has(e.id));
+                     if (nextDayShiftEntries.length > 0) {
+                         nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
+                         normalEntries.push(...nextDayShiftEntries);
+                         lookedAheadEntries = nextDayShiftEntries;
+                     }
+                 }
+
+                 const uniqueMap = new Map();
+                 normalEntries.forEach(e => uniqueMap.set(new Date(e.timestamp).getTime(), e));
+                 normalEntries = Array.from(uniqueMap.values());
+
+                 // Fix mis-dated night shift exits
+                 const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
+                 if (startEntry) {
+                     normalEntries.forEach(e => {
+                         const d = new Date(e.timestamp);
+                         if (d.getHours() < 13 && d.getTime() < new Date(startEntry.timestamp).getTime()) {
+                             e.timestamp = addDays(d, 1).toISOString();
+                         }
+                     });
+                 }
+                 normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+                 // --- Assignment Logic ---
+                 const usedIds = new Set<string>();
+                 let entrada1 = normalEntries.find(e => e.type === 'entrada');
+                 if (entrada1) usedIds.add(entrada1.id);
+                 let saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
+                 if (saida1) usedIds.add(saida1.id);
+                 let entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
+                 if (entrada2) usedIds.add(entrada2.id);
+                 let saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
+                 if (saida2) usedIds.add(saida2.id);
+
+                 const unusedEntries = normalEntries.filter(e => !usedIds.has(e.id));
+                 const consumeNextUnused = (afterTime?: number) => {
+                     const idx = unusedEntries.findIndex(e => (!afterTime || new Date(e.timestamp).getTime() > afterTime));
+                     if (idx !== -1) {
+                         const entry = unusedEntries[idx];
+                         unusedEntries.splice(idx, 1);
+                         usedIds.add(entry.id);
+                         return entry;
+                     }
+                 };
+
+                 if (!entrada1) entrada1 = consumeNextUnused();
+                 const t1Time = entrada1 ? new Date(entrada1.timestamp).getTime() : 0;
+                 if (!saida1) saida1 = consumeNextUnused(t1Time);
+                 const t2Time = saida1 ? new Date(saida1.timestamp).getTime() : t1Time;
+                 if (!entrada2) entrada2 = consumeNextUnused(t2Time);
+                 const t3Time = entrada2 ? new Date(entrada2.timestamp).getTime() : t2Time;
+                 if (!saida2) saida2 = consumeNextUnused(t3Time);
+
+                 if (!saida2 && unusedEntries.length > 0) {
+                     const morningExitIndex = unusedEntries.findIndex(e => new Date(e.timestamp).getHours() < 13);
+                     if (morningExitIndex !== -1) {
+                         saida2 = unusedEntries[morningExitIndex];
+                         unusedEntries.splice(morningExitIndex, 1);
+                         usedIds.add(saida2.id);
+                     }
+                 }
+
+                 if ((is4hMorning || is3hMorning || isSegSex08_12 || is3hAlternating) && entrada1 && saida2 && !saida1 && !entrada2) {
+                     saida1 = saida2; saida2 = undefined;
+                 }
+
+                 // --- Worked Minutes Calculation ---
+                 let workedMinutes = 0;
+                 const calcPair = (e1?: TimeEntryRow, e2?: TimeEntryRow) => {
+                     if (e1 && e2) {
+                         const s = new Date(e1.timestamp);
+                         let e = new Date(e2.timestamp);
+                         if (e.getTime() < s.getTime()) e = addDays(e, 1);
+                         return Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+                     }
+                     return 0;
+                 };
+
+                 workedMinutes += calcPair(entrada1, saida1);
+                 workedMinutes += calcPair(entrada2, saida2);
+                 
+                 if (entrada1 && saida2 && !saida1 && !entrada2 && normalEntries.length <= 2) {
+                     workedMinutes += calcPair(entrada1, saida2);
+                 }
+
+                 const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
+                 totalExtras += extrasMinutes;
+
+                 // Clean up consumed IDs for next iteration if they were used for lookahead
+                 if (lookedAheadEntries.length > 0) {
+                     lookedAheadEntries.forEach(e => {
+                         if (!usedIds.has(e.id)) consumedEntryIds.delete(e.id);
+                     });
+                 }
+             }
+
+             rows.push({
+                 name: emp.name,
+                cpf: emp.cpf,
+                extras: (() => {
+                    const h = Math.floor(totalExtras / 60);
+                    const m = Math.round(totalExtras % 60);
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                })()
+            });
+        }
+
+        const doc = new jsPDF('p', 'mm', 'a4');
+        doc.setFontSize(16);
+        doc.text(`Relatório de Horas Extras - ${format(startPeriod, 'MM/yyyy')}`, 105, 20, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text(`Empresa: ${company.name}`, 14, 30);
+        doc.text(`CNPJ: ${company.cnpj}`, 14, 35);
+
+        let y = 45;
+        doc.setLineWidth(0.1);
+        doc.line(14, 40, 196, 40);
+
+        // Table Header
+        doc.setFont('helvetica', 'bold');
+        doc.text("Funcionário", 14, y);
+        doc.text("CPF", 120, y);
+        doc.text("Total Extras (h)", 170, y);
+        y += 5;
+        doc.line(14, y, 196, y);
+        y += 7;
+
+        // Table Body
+        doc.setFont('helvetica', 'normal');
+        for (const row of rows) {
+            doc.text(row.name.substring(0, 40), 14, y);
+            doc.text(cleanDoc(row.cpf || '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'), 120, y);
+            doc.text(row.extras, 175, y);
+            y += 7;
+        }
+
+        doc.save(`Relatorio_Extras_${format(startPeriod, 'yyyy-MM')}.pdf`);
+
+    } catch (error: unknown) {
+        console.error("Erro ao gerar Relatório de Extras:", error);
+        throw error;
+    }
+};
