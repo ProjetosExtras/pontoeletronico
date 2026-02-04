@@ -841,9 +841,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 }
                 // Apply reduction factor: 1 night hour = 52.5 clock minutes
                 // Multiplier = 60 / 52.5 ≈ 1.142857
-                // return Math.round(minutes * (60 / 52.5));
-                // AJUSTE SOLICITADO: Remover redução da hora noturna, mantendo cálculo pelo relógio (22h-05h = 7h)
-                return minutes;
+                return Math.round(minutes * (60 / 52.5));
             };
 
             daysInMonth.forEach(day => {
