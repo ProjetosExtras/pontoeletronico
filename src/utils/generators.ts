@@ -559,9 +559,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                      const nextKey = format(nextDay, 'yyyy-MM-dd');
                      const nextDayEntries = entriesByDay.get(nextKey) || [];
                      
+                     const lookAheadLimit = isNightShift ? 14 : 6;
                      const nextDayShiftEntries = nextDayEntries.filter(e => {
                          const h = new Date(e.timestamp).getHours();
-                         return h < 14; 
+                         return h < lookAheadLimit; 
                      });
 
                      if (nextDayShiftEntries.length > 0) {
@@ -986,6 +987,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 );
                 
                 const shouldLookAhead = isNightShift || (lastHour >= 18 && seemsIncomplete);
+                let lookedAheadEntries: TimeEntryRow[] = [];
 
                 if (shouldLookAhead && normalEntries.length > 0) {
                     const nextDay = addDays(day, 1);
@@ -994,14 +996,17 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     
                     // Take entries from next day that are before 14:00 (2 PM)
                     // This covers the end of a night shift (07:00) plus potential overtime
+                    // For day shifts (not night shift), limit lookahead to 06:00 AM to avoid consuming next day's morning shift
+                    const lookAheadLimit = isNightShift ? 14 : 6;
                     const nextDayShiftEntries = nextDayEntries.filter(e => {
                         const h = new Date(e.timestamp).getHours();
-                        return h < 14 && !consumedEntryIds.has(e.id);
+                        return h < lookAheadLimit && !consumedEntryIds.has(e.id);
                     });
 
                     if (nextDayShiftEntries.length > 0) {
                         nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
                         normalEntries.push(...nextDayShiftEntries);
+                        lookedAheadEntries = nextDayShiftEntries;
                     }
                 }
 
@@ -1227,6 +1232,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td style="font-size: 8px;">${obs}</td>
                     </tr>
                 `;
+
+                if (lookedAheadEntries.length > 0) {
+                     lookedAheadEntries.forEach(e => {
+                         if (!usedIds.has(e.id)) consumedEntryIds.delete(e.id);
+                     });
+                }
             });
 
             const formatMinutes = (mins: number) => {
