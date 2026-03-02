@@ -6,6 +6,7 @@ import { generateAFD, generateAEJ, generateEspelhoPDF } from "@/utils/generators
 import { useState } from "react";
 import { toast } from "sonner";
 import { EspelhoPontoDialog } from "@/components/dashboard/EspelhoPontoDialog";
+import { EspelhoPontoAllDialog } from "@/components/dashboard/EspelhoPontoAllDialog";
 import { RelatorioExtrasDialog } from "@/components/dashboard/RelatorioExtrasDialog";
 import { format } from "date-fns";
 
@@ -111,15 +112,7 @@ const Reports = () => {
                 </p>
                 <div className="space-y-3">
                     <EspelhoPontoDialog />
-                    <Button 
-                        className="w-full" 
-                        variant="secondary"
-                        onClick={handleGenerateAllEspelhos}
-                        disabled={loading === 'ESPELHO_ALL'}
-                    >
-                        {loading === 'ESPELHO_ALL' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                        Baixar Todos (Mês Atual)
-                    </Button>
+                    <EspelhoPontoAllDialog />
                 </div>
             </CardContent>
         </Card>

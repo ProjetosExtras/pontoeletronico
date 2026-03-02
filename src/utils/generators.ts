@@ -159,18 +159,19 @@ export const generateAEJ = async () => {
         const entries = (entriesRaw as unknown as TimeEntryRow[] | null) || [];
         if (entries.length === 0) throw new Error("Sem registros para gerar AEJ");
 
-        // Group by Employee
-        const employeesMap = new Map();
+        // Group by Employee (use employee_id to avoid collisions on same names)
+        const employeesMap = new Map<string, { id: string | undefined; data: EmployeeRow; entries: TimeEntryRow[] }>();
         entries.forEach((entry) => {
-            const empName = entry.employees?.name || "Funcionário Desconhecido";
-            if (!employeesMap.has(empName)) {
-                employeesMap.set(empName, {
+            // Use ID if available, otherwise Name, otherwise 'unknown'
+            const empKey = entry.employee_id || entry.employees?.name || 'unknown';
+            if (!employeesMap.has(empKey)) {
+                employeesMap.set(empKey, {
                     id: entry.employee_id,
                     data: entry.employees || {},
                     entries: []
                 });
             }
-            employeesMap.get(empName).entries.push(entry);
+            employeesMap.get(empKey)!.entries.push(entry);
         });
 
         let content = "";
@@ -185,7 +186,8 @@ export const generateAEJ = async () => {
         const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
 
         // Process each employee
-        for (const [empName, empObj] of employeesMap) {
+        for (const [, empObj] of employeesMap) {
+            const empName = empObj.data?.name || "Funcionário Desconhecido";
             const empData = empObj.data;
             
             // Get Signature
@@ -368,18 +370,19 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
         if (entries.length === 0) throw new Error("Sem dados para gerar o relatório neste período.");
 
-        // Group by Employee
-        const employeesMap = new Map();
+        // Group by Employee (use employee_id to avoid collisions on same names)
+        const employeesMap = new Map<string, { id: string | undefined; data: EmployeeRow; entries: TimeEntryRow[] }>();
         entries.forEach((entry) => {
-            const empName = entry.employees?.name || "Funcionário Desconhecido";
-            if (!employeesMap.has(empName)) {
-                employeesMap.set(empName, {
+            // Use ID if available, otherwise Name, otherwise 'unknown'
+            const empKey = entry.employee_id || entry.employees?.name || 'unknown';
+            if (!employeesMap.has(empKey)) {
+                employeesMap.set(empKey, {
                     id: entry.employee_id,
                     data: entry.employees || {},
                     entries: []
                 });
             }
-            employeesMap.get(empName).entries.push(entry);
+            employeesMap.get(empKey)!.entries.push(entry);
         });
 
         const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
@@ -395,7 +398,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
         let pageCount = 0;
 
         // Process each employee
-        for (const [empName, empObj] of employeesMap) {
+        for (const [, empObj] of employeesMap) {
+            const empName = empObj.data?.name || "Funcionário Desconhecido";
             if (pageCount > 0) {
                 doc.addPage();
             }
@@ -1083,6 +1087,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                      });
                 }
 
+                // Sort again after potential timestamp fixes
                 normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                 
                 // Assignment Logic: Types first, then remaining slots
@@ -1150,6 +1155,19 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 if ((is4hMorning || is3hMorning || isSegSex08_12 || is3hAlternating) && entrada1 && saida2 && !saida1 && !entrada2) {
                      saida1 = saida2;
                      saida2 = undefined;
+                }
+
+                // FIX: For 12x36 or Night Shift with 2 punches (Ent1, Sai2), ensure they are displayed as Ent1 and Sai2 (spanning full columns)
+                // This is purely visual preference: Ent1 | | | Sai2 vs Ent1 | Sai1 | |
+                // Usually long shifts look better as Ent1 ... Sai2
+                if ((is12x36 || isNightShift) && entrada1 && saida2 && !saida1 && !entrada2) {
+                    // Keep saida2 as saida2
+                } else if (entrada1 && saida2 && !saida1 && !entrada2 && normalEntries.length === 2 && !is12x36 && !isNightShift) {
+                    // For standard shifts with 2 punches (e.g. 08:00 - 17:00 no break), usually displayed as Ent1 - Sai1
+                    // unless it's a very long shift?
+                    // Let's assume standard behavior is Ent1 - Sai1 for single period.
+                    saida1 = saida2;
+                    saida2 = undefined;
                 }
 
                 const t1 = fmt(entrada1);
@@ -1355,7 +1373,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
         let filename = `Espelho_Ponto_${format(startPeriod, 'yyyy-MM')}.pdf`;
         if (employeesMap.size === 1) {
-            const [empName] = employeesMap.keys();
+            const first = Array.from(employeesMap.values())[0];
+            const empName = first.data?.name || "Funcionario";
             const monthStr = format(startPeriod, 'MMMM_yyyy', { locale: ptBR });
             // Remove characters that might be invalid in filenames and replace spaces with underscores
             const safeName = empName.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim().replace(/\s+/g, '_');
