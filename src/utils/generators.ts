@@ -547,7 +547,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
-                isNightShift = empCode === '10' || empCode === '31' || empCode === '14' || empCode === '26';
+                isNightShift = empCode === '10' || empCode === '31' || empCode === '26';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -971,7 +971,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '24' || empCode === '25') {
+                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '24' || empCode === '25') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
@@ -1564,7 +1564,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
-                 isNightShift = ['10', '31', '14', '26'].includes(empCode);
+                 isNightShift = ['10', '31', '26'].includes(empCode);
                  is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
              }
 
@@ -1651,7 +1651,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                      else if (dow === 6) expectedMinutes = 480;
                      else expectedMinutes = 0;
                  } else if (is12x36) {
-                     if (['12','32','10','31','13','28','11','26','5','22','14','24','25'].includes(empCode)) {
+                     if (['12','32','10','31','13','28','11','26','5','22','24','25'].includes(empCode)) {
                          expectedMinutes = hasAnyEntry ? 660 : 0;
                      } else {
                          expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
