@@ -885,19 +885,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             let totalAdicionalNoturno = 0;
 
             const calculateNightMinutes = (start: Date, end: Date): number => {
-                let minutes = 0;
-                const current = new Date(start.getTime());
-                const endTime = end.getTime();
-                
-                while (current.getTime() < endTime) {
-                    const h = current.getHours();
-                    if (h >= 22 || h < 5) {
-                        minutes++;
-                    }
-                    current.setMinutes(current.getMinutes() + 1);
-                }
-                // Apply reduction factor: 1 night hour = 52.5 clock minutes
-                // Multiplier = 60 / 52.5 ≈ 1.142857
+                const s = new Date(start.getTime());
+                const e = new Date(end.getTime());
+                if (e.getTime() < s.getTime()) e.setDate(e.getDate() + 1);
+                let threshold = new Date(s.getTime());
+                if (threshold.getHours() < 22) threshold.setHours(22, 0, 0, 0);
+                if (threshold.getTime() > e.getTime()) return 0;
+                const minutes = Math.max(0, Math.round((e.getTime() - threshold.getTime()) / 60000));
                 return Math.round(minutes * (60 / 52.5));
             };
 
@@ -1222,38 +1216,70 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     return `${pad(h, 2)}:${pad(m, 2)}`;
                 };
 
-                const normaisMinutes = shouldWork ? Math.min(workedMinutes, expectedMinutes) : 0;
-                const faltasMinutes = (shouldWork && isPast && !hasAbono) ? Math.max(0, expectedMinutes - workedMinutes) : 0;
-                const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
-
-                totalNormais += normaisMinutes;
-                totalFaltas += faltasMinutes;
-                totalExtras += extrasMinutes;
-                totalAdicionalNoturno += nightMinutes;
-
-
+                let normaisMinutes = 0;
+                let extrasRaw = 0;
+                let faltasRaw = 0;
+                if (shouldWork) {
+                    normaisMinutes = Math.min(workedMinutes, expectedMinutes);
+                    faltasRaw = (isPast && !hasAbono) ? Math.max(0, expectedMinutes - workedMinutes) : 0;
+                    extrasRaw = Math.max(0, workedMinutes - expectedMinutes);
+                } else {
+                    if (hasAnyEntry) {
+                        normaisMinutes = workedMinutes;
+                        faltasRaw = 0;
+                        extrasRaw = 0;
+                    } else {
+                        normaisMinutes = 0;
+                        faltasRaw = 0;
+                        extrasRaw = 0;
+                    }
+                }
+                // Compute atraso base before applying tolerância/compensação
                 const expectedStartDate = new Date(day);
                 const [eh, em] = expectedStart.split(':').map(Number);
                 expectedStartDate.setHours(eh, em, 0, 0);
-
-                // FIX: Detect shift swap (Day -> Night) to avoid 12h delay
-                // If expected is 07:00 but first entry is >= 18:00, assume night shift start (19:00)
                 if (expectedStart === '07:00' && entrada1) {
                     const h = new Date(entrada1.timestamp).getHours();
                     if (h >= 18) {
                          expectedStartDate.setHours(19, 0, 0, 0);
                     }
                 }
-
                 const atrasoMins = (shouldWork && entrada1)
                   ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
                   : 0;
-                const atrasoMinutes = atrasoMins > 5 ? atrasoMins : 0;
+                const tol5 = (mins: number) => mins <= 5 ? 0 : mins;
+                const atrasoEff = tol5(atrasoMins);
+                const extrasEffRaw = tol5(extrasRaw);
+                const faltasEff = tol5(faltasRaw);
+                const dailyLimit = 10;
+                let atrasoMinutes = 0;
+                let extrasMinutes = 0;
+                let faltasMinutes = faltasEff;
+
+                if (atrasoEff > 0 && extrasEffRaw > 0) {
+                    if (extrasEffRaw >= atrasoEff) {
+                        const net = extrasEffRaw - atrasoEff;
+                        extrasMinutes = net <= dailyLimit ? 0 : net;
+                        atrasoMinutes = 0;
+                    } else {
+                        const net = atrasoEff - extrasEffRaw;
+                        atrasoMinutes = net <= dailyLimit ? 0 : net;
+                        extrasMinutes = 0;
+                    }
+                } else {
+                    atrasoMinutes = atrasoEff;
+                    extrasMinutes = extrasEffRaw;
+                }
+
+                totalNormais += normaisMinutes;
+                totalFaltas += faltasMinutes;
+                totalExtras += extrasMinutes;
+                totalAdicionalNoturno += nightMinutes;
                 totalAtrasos += atrasoMinutes;
 
                 const obsParts: string[] = [];
                 if (atrasoMinutes > 0) obsParts.push(`ATRASO ${formatMinutes(atrasoMinutes)}`);
-                if (!shouldWork && workedMinutes > 0) obsParts.push(`EXTRA ${formatMinutes(workedMinutes)}`);
+                
 
                 // Collect Justifications
                 const justifications = dayEntries
@@ -1439,17 +1465,13 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
 
         // Helper function (same as in generateEspelhoPDF)
         const calculateNightMinutes = (start: Date, end: Date): number => {
-            let minutes = 0;
-            const current = new Date(start.getTime());
-            const endTime = end.getTime();
-            
-            while (current.getTime() < endTime) {
-                const h = current.getHours();
-                if (h >= 22 || h < 5) {
-                    minutes++;
-                }
-                current.setMinutes(current.getMinutes() + 1);
-            }
+            const s = new Date(start.getTime());
+            const e = new Date(end.getTime());
+            if (e.getTime() < s.getTime()) e.setDate(e.getDate() + 1);
+            let threshold = new Date(s.getTime());
+            if (threshold.getHours() < 22) threshold.setHours(22, 0, 0, 0);
+            if (threshold.getTime() > e.getTime()) return 0;
+            const minutes = Math.max(0, Math.round((e.getTime() - threshold.getTime()) / 60000));
             return Math.round(minutes * (60 / 52.5));
         };
 
@@ -1793,8 +1815,37 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                      workedMinutes += calcPair(entrada1, saida2);
                  }
 
-                 const extrasMinutes = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : workedMinutes;
-                 totalExtras += extrasMinutes;
+                const extrasRawAej = shouldWork ? Math.max(0, workedMinutes - expectedMinutes) : 0;
+                // Calculate atraso for AEJ to allow compensation
+                const expectedStartDate = new Date(day);
+                const [eh, em] = expectedStart.split(':').map(Number);
+                expectedStartDate.setHours(eh, em, 0, 0);
+                if (expectedStart === '07:00' && entrada1) {
+                    const h = new Date(entrada1.timestamp).getHours();
+                    if (h >= 18) {
+                         expectedStartDate.setHours(19, 0, 0, 0);
+                    }
+                }
+                const atrasoMinsAej = (shouldWork && entrada1)
+                  ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
+                  : 0;
+                const tol5Aej = (mins: number) => mins <= 5 ? 0 : mins;
+                const atrasoEffAej = tol5Aej(atrasoMinsAej);
+                const extrasEffRawAej = tol5Aej(extrasRawAej);
+                const dailyLimitAej = 10;
+                let extrasMinutes = 0;
+
+                if (atrasoEffAej > 0 && extrasEffRawAej > 0) {
+                    if (extrasEffRawAej >= atrasoEffAej) {
+                        const net = extrasEffRawAej - atrasoEffAej;
+                        extrasMinutes = net <= dailyLimitAej ? 0 : net;
+                    } else {
+                        extrasMinutes = 0;
+                    }
+                } else {
+                    extrasMinutes = extrasEffRawAej;
+                }
+                totalExtras += extrasMinutes;
 
                  // Clean up consumed IDs for next iteration if they were used for lookahead
                  if (lookedAheadEntries.length > 0) {
