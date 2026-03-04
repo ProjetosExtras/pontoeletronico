@@ -1356,7 +1356,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             html += `
                     <tr class="totals-row">
-                        <td colspan="5" style="text-align: right; padding-right: 10px;">TOTAIS</td>
+                        <td style="text-align: left; padding-left: 5px;">TOTAIS</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
                         <td>${formatMinutes(totalNormais)}</td>
                         <td>${formatMinutes(totalFaltas)}</td>
                         <td>${formatMinutes(totalExtras)}</td>

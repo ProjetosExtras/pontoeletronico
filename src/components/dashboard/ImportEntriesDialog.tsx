@@ -226,8 +226,8 @@ export function ImportEntriesDialog() {
                   .join(" ")
                   .split(/[\n\s]+/)
                   .filter(t => t.match(/^\d{1,2}:\d{2}$/));
-                    
-                    times.forEach((time, index) => {
+                
+                times.forEach((time, index) => {
                         let type = 'entrada';
                         if (index === 1) type = 'intervalo';
                         if (index === 2) type = 'retorno';
@@ -246,7 +246,6 @@ export function ImportEntriesDialog() {
                             originalTime: time
                         });
                     });
-                }
             }
         }
         if (!dataRow) {
@@ -321,12 +320,15 @@ export function ImportEntriesDialog() {
         }
 
         if (uniqueNewEmployees.size > 0) {
-            const newEmployeesToInsert = Array.from(uniqueNewEmployees.entries()).map(([code, data]: [string, any]) => ({
-                company_id: profile.company_id,
-                name: data.name || `Funcionário ${code}`,
-                code: code,
-                job_title: data.dept || null,
-            }));
+            const newEmployeesToInsert = Array.from(uniqueNewEmployees.entries()).map((entry) => {
+                const [code, data] = entry as [string, any];
+                return {
+                    company_id: profile.company_id,
+                    name: data?.name || `Funcionário ${code}`,
+                    code: code,
+                    job_title: data?.dept || null,
+                };
+            });
 
             const { data: createdEmployees, error: createError } = await supabase
                 .from('employees')
