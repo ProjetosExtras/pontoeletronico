@@ -47,21 +47,11 @@ export function EspelhoPontoAllDialog() {
             <FileText className="h-5 w-5 text-purple-600" />
             Baixar Espelhos de Ponto de Todos
           </DialogTitle>
-          <DialogDescription>Selecione o mês para gerar os PDFs para todos os colaboradores.</DialogDescription>
+          <DialogDescription>Esta opção ainda está em desenvolvimento e será disponibilizada em breve.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">Mês de Referência</label>
-            <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
-          </div>
-        </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button onClick={handleGenerateAll} disabled={loading || !selectedMonth}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Gerar Relatórios
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Fechar
           </Button>
         </DialogFooter>
       </DialogContent>
