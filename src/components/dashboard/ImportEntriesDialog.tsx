@@ -39,7 +39,7 @@ export function ImportEntriesDialog() {
         const wb = XLSX.read(bstr, { type: "binary" });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
         const entriesToImport = await parseExcelData(data);
         setParsedData(entriesToImport);
@@ -85,11 +85,10 @@ export function ImportEntriesDialog() {
     let dayColumns: { [key: number]: number } = {}; // dia -> index da coluna
     let daysRowIndex = -1;
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
         const row = data[i];
         if (!row) continue;
         
-        // Reiniciar mapeamento para cada linha tentada
         let tempDayColumns: { [key: number]: number } = {};
         let foundSequence = 0;
         
@@ -104,8 +103,7 @@ export function ImportEntriesDialog() {
             }
         });
 
-        // Se encontrou uma quantidade razoável de dias (ex: > 5), assume que é a linha
-        if (foundSequence >= 5) {
+        if (foundSequence >= 3) {
             dayColumns = tempDayColumns;
             daysRowIndex = i;
             console.log("Linha de dias encontrada:", i, dayColumns);
@@ -132,9 +130,7 @@ export function ImportEntriesDialog() {
       // Converter linha toda para string para busca rápida inicial
       const rowStr = row.join(" ").toLowerCase();
       
-      // Verifica marcadores chave
-      // Expandido para aceitar: No, Mat, Matrícula, Código, ID
-      const keywords = ["no", "mat", "matrícula", "matricula", "código", "codigo", "id"];
+      const keywords = ["no", "mat", "matrícula", "matricula", "código", "codigo", "id", "funcionário", "funcionario", "departamento", "dept", "nome"];
       const hasKeyword = keywords.some(k => 
           rowStr.includes(`${k}:`) || 
           rowStr.includes(`${k}.`) || 
@@ -170,8 +166,7 @@ export function ImportEntriesDialog() {
                    }
                }
 
-               // Detectar Nome
-               if (/^nome[:.]?$/i.test(cellVal)) {
+               if (/^nome[:.]?$/i.test(cellVal) || /^funcion[aá]rio[:.]?$/i.test(cellVal)) {
                    for (let k = c + 1; k < row.length && k < c + 5; k++) {
                        const nextVal = String(row[k] || "").trim();
                        if (nextVal) {
@@ -182,10 +177,12 @@ export function ImportEntriesDialog() {
                } else if (/^nome[:.]?\s*(.+)$/i.test(cellVal)) {
                    const match = cellVal.match(/^nome[:.]?\s*(.+)$/i);
                    if (match) empName = match[1];
+               } else if (/^funcion[aá]rio[:.]?\s*(.+)$/i.test(cellVal)) {
+                   const match = cellVal.match(/^funcion[aá]rio[:.]?\s*(.+)$/i);
+                   if (match) empName = match[1];
                }
 
-               // Detectar Dept
-               if (/^dept[:.]?$/i.test(cellVal)) {
+               if (/^(departamento|dept)[:.]?$/i.test(cellVal)) {
                     for (let k = c + 1; k < row.length && k < c + 5; k++) {
                         const nextVal = String(row[k] || "").trim();
                         if (nextVal) {
@@ -193,43 +190,77 @@ export function ImportEntriesDialog() {
                             break;
                         }
                     }
-               } else if (/^dept[:.]?\s*(.+)$/i.test(cellVal)) {
-                    const match = cellVal.match(/^dept[:.]?\s*(.+)$/i);
-                    if (match) empDept = match[1];
+               } else if (/^(departamento|dept)[:.]?\s*(.+)$/i.test(cellVal)) {
+                    const match = cellVal.match(/^(departamento|dept)[:.]?\s*(.+)$/i);
+                    if (match) empDept = match[2];
                }
            }
+      }
+
+      if (!isEmployeeRow) {
+          const firstVal = String(row[0] || "").trim();
+          const secondVal = String(row[1] || "").trim();
+          if (/^\d+$/.test(firstVal) && secondVal && /[A-Za-zÀ-ÿ]/.test(secondVal)) {
+              empCode = firstVal;
+              empName = secondVal;
+              isEmployeeRow = true;
+          }
       }
 
       if (isEmployeeRow && empCode) {
         foundEmployees++;
         
-        // Dados de ponto estão na linha IMEDIATAMENTE ABAIXO (i + 1)
         const dataRowIndex = i + 1;
         const dataRow = data[dataRowIndex];
+        const sameRow = row;
 
         if (dataRow) {
-            // Iterar dias mapeados
             for (const [day, colIdx] of Object.entries(dayColumns)) {
-                const cellContent = dataRow[colIdx];
-                if (cellContent) {
-                    // cellContent pode ser "07:55\n12:06..."
-                    // Normalizar separadores (quebra de linha ou espaço)
-                    const times = String(cellContent).split(/[\n\s]+/).filter(t => t.match(/\d{1,2}:\d{2}/));
+                const cellContentPrimary = dataRow[colIdx];
+                const cellContentSameRow = sameRow[colIdx];
+                const neighbor1 = dataRow[colIdx + 1];
+                const neighbor2 = dataRow[colIdx + 2];
+                const sources = [cellContentPrimary, cellContentSameRow, neighbor1, neighbor2].filter(Boolean);
+                const times = sources
+                  .map(s => String(s))
+                  .join(" ")
+                  .split(/[\n\s]+/)
+                  .filter(t => t.match(/^\d{1,2}:\d{2}$/));
                     
                     times.forEach((time, index) => {
-                        // Tentar determinar tipo baseado na ordem
-                        // 0: entrada, 1: intervalo, 2: retorno, 3: saida
                         let type = 'entrada';
                         if (index === 1) type = 'intervalo';
                         if (index === 2) type = 'retorno';
                         if (index === 3) type = 'saida';
-                        if (index > 3) type = 'saida'; // Extra?
+                        if (index > 3) type = 'saida';
 
-                        // Construir timestamp
-                        // time = "07:55"
                         const [hh, mm] = time.split(':').map(Number);
                         const date = new Date(currentYear, currentMonth, parseInt(day), hh, mm);
                         
+                        entries.push({
+                            empCode,
+                            empName,
+                            empDept,
+                            timestamp: date.toISOString(),
+                            type,
+                            originalTime: time
+                        });
+                    });
+                }
+            }
+        }
+        if (!dataRow) {
+            for (const [day, colIdx] of Object.entries(dayColumns)) {
+                const cellValue = sameRow[colIdx];
+                if (cellValue) {
+                    const times = String(cellValue).split(/[\n\s]+/).filter(t => t.match(/^\d{1,2}:\d{2}$/));
+                    times.forEach((time, index) => {
+                        let type = 'entrada';
+                        if (index === 1) type = 'intervalo';
+                        if (index === 2) type = 'retorno';
+                        if (index === 3) type = 'saida';
+                        const [hh, mm] = time.split(':').map(Number);
+                        const date = new Date(currentYear, currentMonth, parseInt(day), hh, mm);
                         entries.push({
                             empCode,
                             empName,
