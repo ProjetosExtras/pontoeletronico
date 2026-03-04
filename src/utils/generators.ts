@@ -547,7 +547,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
-                isNightShift = empCode === '10' || empCode === '31' || empCode === '26';
+                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '14';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -868,11 +868,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                             <th width="7%">SAÍ. 1</th>
                             <th width="7%">ENT. 2</th>
                             <th width="7%">SAÍ. 2</th>
+                            <th width="5%">INT</th>
                             <th width="9%">NORMAIS</th>
                             <th width="9%">FALTAS</th>
                             <th width="9%">EXTRAS</th>
                             <th width="9%">AD. NOT</th>
-                            <th width="21%">OBS</th>
+                            <th width="16%">OBS</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1247,28 +1248,36 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const atrasoMins = (shouldWork && entrada1)
                   ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
                   : 0;
+                // Calculate Interval Duration (Moved here for logic)
+                let intervalMinutes = 0;
+                if (saida1 && entrada2) {
+                    const s = new Date(saida1.timestamp);
+                    let e = new Date(entrada2.timestamp);
+                    if (e.getTime() < s.getTime()) e = addDays(e, 1);
+                    intervalMinutes = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+                }
+
                 const tol5 = (mins: number) => mins <= 5 ? 0 : mins;
                 const atrasoEff = tol5(atrasoMins);
                 const extrasEffRaw = tol5(extrasRaw);
                 const faltasEff = tol5(faltasRaw);
-                const dailyLimit = 10;
-                let atrasoMinutes = 0;
-                let extrasMinutes = 0;
+                // Removed dailyLimit compensation rule as requested
+                // const dailyLimit = 10;
+                let atrasoMinutes = atrasoEff;
+                let extrasMinutes = extrasEffRaw;
                 let faltasMinutes = faltasEff;
 
-                if (atrasoEff > 0 && extrasEffRaw > 0) {
-                    if (extrasEffRaw >= atrasoEff) {
-                        const net = extrasEffRaw - atrasoEff;
-                        extrasMinutes = net <= dailyLimit ? 0 : net;
-                        atrasoMinutes = 0;
-                    } else {
-                        const net = atrasoEff - extrasEffRaw;
-                        atrasoMinutes = net <= dailyLimit ? 0 : net;
-                        extrasMinutes = 0;
-                    }
-                } else {
-                    atrasoMinutes = atrasoEff;
-                    extrasMinutes = extrasEffRaw;
+                // Interval Logic: Short -> Extra, Long -> Falta
+                const stipulatedInterval = expectedMinutes > 360 ? 60 : (expectedMinutes > 240 ? 15 : 0);
+                if (shouldWork && hasAnyEntry && stipulatedInterval > 0 && saida1 && entrada2) {
+                     const diff = intervalMinutes - stipulatedInterval;
+                     if (Math.abs(diff) > 5) { // 5 min tolerance
+                         if (diff < 0) {
+                             extrasMinutes += Math.abs(diff);
+                         } else {
+                             faltasMinutes += diff;
+                         }
+                     }
                 }
 
                 totalNormais += normaisMinutes;
@@ -1317,10 +1326,13 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const adNot = nightMinutes > 0 ? formatMinutes(nightMinutes) : '';
                 const obs = obsParts.join(' | ');
 
+                const intervalStr = intervalMinutes > 0 ? formatMinutes(intervalMinutes) : '';
+
                 html += `
                     <tr class="${rowClass}">
                         <td class="row-day">${dayStr}</td>
                         ${timeCells}
+                        <td style="font-size: 8px; text-align: center;">${intervalStr}</td>
                         <td>${normais}</td>
                         <td>${faltas}</td>
                         <td>${extras}</td>
@@ -1586,7 +1598,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
-                 isNightShift = ['10', '31', '26'].includes(empCode);
+                 isNightShift = ['10', '31', '26', '14'].includes(empCode);
                  is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
              }
 
@@ -1832,19 +1844,15 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                 const tol5Aej = (mins: number) => mins <= 5 ? 0 : mins;
                 const atrasoEffAej = tol5Aej(atrasoMinsAej);
                 const extrasEffRawAej = tol5Aej(extrasRawAej);
-                const dailyLimitAej = 10;
-                let extrasMinutes = 0;
+                // Removed dailyLimit compensation rule as requested
+                // const dailyLimitAej = 10; 
+                let extrasMinutes = extrasEffRawAej;
 
-                if (atrasoEffAej > 0 && extrasEffRawAej > 0) {
-                    if (extrasEffRawAej >= atrasoEffAej) {
-                        const net = extrasEffRawAej - atrasoEffAej;
-                        extrasMinutes = net <= dailyLimitAej ? 0 : net;
-                    } else {
-                        extrasMinutes = 0;
-                    }
-                } else {
-                    extrasMinutes = extrasEffRawAej;
-                }
+                /* 
+                   Old logic removed:
+                   if (atrasoEffAej > 0 && extrasEffRawAej > 0) { ... }
+                */
+                
                 totalExtras += extrasMinutes;
 
                  // Clean up consumed IDs for next iteration if they were used for lookahead
