@@ -1,13 +1,14 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, FileText, Loader2, Clock } from "lucide-react";
+import { Download, FileText, Loader2, Clock, AlertTriangle } from "lucide-react";
 import { generateAFD, generateAEJ, generateEspelhoPDF } from "@/utils/generators";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EspelhoPontoDialog } from "@/components/dashboard/EspelhoPontoDialog";
 import { EspelhoPontoAllDialog } from "@/components/dashboard/EspelhoPontoAllDialog";
 import { RelatorioExtrasDialog } from "@/components/dashboard/RelatorioExtrasDialog";
+  import { RelatorioAtrasosDialog } from "@/components/dashboard/RelatorioAtrasosDialog";
 import { format } from "date-fns";
 
 const Reports = () => {
@@ -133,6 +134,24 @@ const Reports = () => {
                     <RelatorioExtrasDialog />
                 </div>
             </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Relatório de Atrasos
+            </CardTitle>
+            <CardDescription>Resumo Mensal de Atrasos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Relatório de atrasos por funcionário com total mensal.
+            </p>
+            <div className="space-y-3">
+              <RelatorioAtrasosDialog />
+            </div>
+          </CardContent>
         </Card>
       </div>
     </DashboardLayout>

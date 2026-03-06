@@ -1942,3 +1942,287 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
         throw error;
     }
 };
+
+export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: string, shiftTypeOverride: string = 'auto') => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user?.id).single();
+    if (!profile?.company_id) throw new Error("Empresa não encontrada");
+    const { data: company } = await supabase.from('companies').select('*').eq('id', profile.company_id).single();
+    const [year, month] = monthStr.split('-').map(Number);
+    const startPeriod = new Date(year, month - 1, 1);
+    const endPeriod = endOfMonth(startPeriod);
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const { data: empRaw } = await supabase
+        .from('employees')
+        .select('*, work_shifts(name, type, schedule_json)')
+        .eq('company_id', profile.company_id)
+        .eq('id', employeeId)
+        .single();
+    if (!empRaw) throw new Error("Funcionário não encontrado.");
+    const emp = empRaw;
+    const { data: entriesRaw } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .eq('employee_id', employeeId)
+        .gte('timestamp', startPeriod.toISOString())
+        .lte('timestamp', endPeriod.toISOString())
+        .order('timestamp', { ascending: true });
+    const entries = entriesRaw || [];
+    const entriesByDay = new Map<string, any[]>();
+    entries.forEach(e => {
+        const key = String(e.timestamp).split('T')[0];
+        const arr = entriesByDay.get(key) || [];
+        arr.push(e);
+        entriesByDay.set(key, arr);
+    });
+    const daysInMonth = eachDayOfInterval({ start: startPeriod, end: endPeriod });
+    const empCode = String(emp.code || '').trim();
+    const workedDaysCount = daysInMonth.reduce((acc, day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        const arr = entriesByDay.get(key) || [];
+        return acc + (arr.length > 0 ? 1 : 0);
+    }, 0);
+    const longShiftDaysCount = daysInMonth.reduce((acc, day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        const arr = entriesByDay.get(key) || [];
+        if (arr.length === 0) return acc;
+        const first = new Date(arr[0].timestamp);
+        const last = new Date(arr[arr.length - 1].timestamp);
+        const spanMins = Math.max(0, Math.round((last.getTime() - first.getTime()) / 60000));
+        return spanMins >= 600 ? acc + 1 : acc;
+    }, 0);
+    let is12x36 = false;
+    let isNightShift = false;
+    let is3hMorning = false;
+    let isStandard0918 = false;
+    let isSegQuiSab716Sex711 = false;
+    let isSegSex716Sab812 = false;
+    let isSegSex08_18Sab812 = false;
+    let is4hMorning = false;
+    let isSegSex08_11 = false;
+    let isSegSex08_12 = false;
+    let isSegDom0630_1550 = false;
+    let isCustomWeekly = false;
+    let customSchedule: any = null;
+    if (shiftTypeOverride && shiftTypeOverride !== 'auto') {
+        if (shiftTypeOverride === '12x36') { is12x36 = true; isNightShift = false; }
+        else if (shiftTypeOverride === '12x36_noturno') { is12x36 = true; isNightShift = true; }
+        else if (shiftTypeOverride === '3h_diurno') { is3hMorning = true; }
+        else if (shiftTypeOverride === 'seg_sex_08_11') { isSegSex08_11 = true; }
+        else if (shiftTypeOverride === 'seg_sex_08_12') { isSegSex08_12 = true; }
+        else if (shiftTypeOverride === 'seg_dom_0630_1550') { isSegDom0630_1550 = true; }
+        else if (shiftTypeOverride === 'standard_09_18') { isStandard0918 = true; }
+        else if (shiftTypeOverride === 'standard') { 
+            if (emp.work_shifts && emp.work_shift_id) {
+                const ws = emp.work_shifts;
+                if (ws.type === '12x36') { is12x36 = true; if (ws.schedule_json?.start === '19:00') isNightShift = true; }
+                else { isCustomWeekly = true; customSchedule = ws.schedule_json; }
+            }
+        }
+        else if (shiftTypeOverride === 'seg_qui_sab_7_16_sex_7_11') { isSegQuiSab716Sex711 = true; }
+        else if (shiftTypeOverride === 'seg_sex_07_16_sab_08_12') { isSegSex716Sab812 = true; }
+        else if (shiftTypeOverride === 'seg_sex_08_18_sab_08_12') { isSegSex08_18Sab812 = true; }
+        else if (shiftTypeOverride === '4h_matutino') { is4hMorning = true; }
+    } else if (emp.work_shifts && emp.work_shift_id) {
+        const ws = emp.work_shifts;
+        if (ws.type === '12x36') { is12x36 = true; if (ws.schedule_json?.start === '19:00') isNightShift = true; }
+        else { isCustomWeekly = true; customSchedule = ws.schedule_json; }
+    } else if (emp.shift_type) {
+        is12x36 = emp.shift_type === '12x36' || emp.shift_type === '12x36_noturno';
+        isNightShift = emp.shift_type === '12x36_noturno';
+        is3hMorning = emp.shift_type === '3h_diurno';
+        isStandard0918 = emp.shift_type === 'standard_09_18';
+        isSegQuiSab716Sex711 = emp.shift_type === 'seg_qui_sab_7_16_sex_7_11';
+        isSegSex716Sab812 = emp.shift_type === 'seg_sex_07_16_sab_08_12';
+        isSegSex08_18Sab812 = emp.shift_type === 'seg_sex_08_18_sab_08_12';
+        is4hMorning = emp.shift_type === '4h_matutino';
+        isSegSex08_11 = emp.shift_type === 'seg_sex_08_11';
+        isSegSex08_12 = emp.shift_type === 'seg_sex_08_12';
+        isSegDom0630_1550 = emp.shift_type === 'seg_dom_0630_1550';
+    } else {
+        is12x36 = workedDaysCount >= 3 && longShiftDaysCount >= 3 && longShiftDaysCount / workedDaysCount >= 0.5;
+    }
+    const isId3 = empCode === '3';
+    const isId2 = empCode === '2';
+    const hasSaturdayWork = daysInMonth.some((d) => {
+        const key = format(d, 'yyyy-MM-dd');
+        const arr = entriesByDay.get(key) || [];
+        return arr.length > 0 && getDay(d) === 6;
+    });
+    let anchorDay = daysInMonth[0] || startPeriod;
+    if (is12x36 || is3hMorning) {
+        if (emp.admission_date) anchorDay = new Date(String(emp.admission_date).split('T')[0]);
+        else if (empCode === '12' || empCode === '30') anchorDay = new Date('2024-01-01');
+    }
+    const rows: { date: string; atraso: string }[] = [];
+    daysInMonth.forEach((day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        let dayEntries = entriesByDay.get(key) || [];
+        const hasAnyEntry = dayEntries.length > 0;
+        const dow = getDay(day);
+        let expectedMinutes = 0;
+        if (isCustomWeekly && customSchedule) {
+            const cfg = customSchedule[String(dow)];
+            if (cfg?.start && cfg?.end) {
+                const [h1, m1] = cfg.start.split(':').map(Number);
+                const [h2, m2] = cfg.end.split(':').map(Number);
+                let totalMins = (h2 * 60 + m2) - (h1 * 60 + m1);
+                if (totalMins < 0) totalMins += 1440;
+                expectedMinutes = totalMins > 360 ? totalMins - 60 : totalMins;
+                if (expectedMinutes < 0) expectedMinutes = 0;
+            }
+        } else if (isSegSex716Sab812) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 480;
+            else if (dow === 6) expectedMinutes = 240;
+            else expectedMinutes = 0;
+        } else if (is4hMorning) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 240;
+            else expectedMinutes = 0;
+        } else if (isSegQuiSab716Sex711) {
+            if (dow >= 1 && dow <= 4) expectedMinutes = 480;
+            else if (dow === 5) expectedMinutes = 240;
+            else if (dow === 6) expectedMinutes = 480;
+            else expectedMinutes = 0;
+        } else if (is12x36) {
+            expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+        } else if (is3hMorning) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+            else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
+            else expectedMinutes = 0;
+        } else if (isSegSex08_11) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 180;
+            else expectedMinutes = 0;
+        } else if (isSegSex08_12) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 240;
+            else expectedMinutes = 0;
+        } else if (isSegSex08_18Sab812) {
+            if (dow >= 1 && dow <= 5) expectedMinutes = 480;
+            else if (dow === 6) expectedMinutes = 240;
+            else expectedMinutes = 0;
+        } else if (isSegDom0630_1550) {
+            expectedMinutes = 440;
+        } else {
+            // Default / Standard 09-18 (mirror Espelho)
+            const isSaturdayAlternating = isId2;
+            const isSaturdayMorning = empCode === '6';
+            if (dow === 0) {
+                expectedMinutes = 0;
+            } else if (dow === 6) {
+                if (isSaturdayAlternating) {
+                    expectedMinutes = dayEntries.length > 0 ? 480 : 0;
+                } else if (isSaturdayMorning) {
+                    expectedMinutes = 240;
+                } else {
+                    expectedMinutes = hasSaturdayWork ? 240 : 0;
+                }
+            } else {
+                expectedMinutes = 480;
+            }
+        }
+        const shouldWork = expectedMinutes > 0;
+        // Normalize entries: dedup, fix mis-dated night exits, sort, and assign pairs (mirror Espelho)
+        const uniqueMap = new Map<number, any>();
+        dayEntries.forEach(e => uniqueMap.set(new Date(e.timestamp).getTime(), e));
+        dayEntries = Array.from(uniqueMap.values());
+        const startEntry = dayEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
+        if (startEntry) {
+            dayEntries.forEach(e => {
+                const d = new Date(e.timestamp);
+                if (d.getHours() < 13 && d.getTime() < new Date(startEntry.timestamp).getTime()) {
+                    e.timestamp = addDays(d, 1).toISOString();
+                }
+            });
+        }
+        dayEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const usedIds = new Set<string>();
+        let entrada1 = dayEntries.find(e => e.type === 'entrada');
+        if (entrada1) usedIds.add(entrada1.id);
+        let saida1 = dayEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
+        if (saida1) usedIds.add(saida1.id);
+        let entrada2 = dayEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
+        if (entrada2) usedIds.add(entrada2.id);
+        let saida2 = dayEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
+        if (saida2) usedIds.add(saida2.id);
+        const unusedEntries = dayEntries.filter(e => !usedIds.has(e.id));
+        const consumeNextUnused = (afterTime?: number) => {
+            const idx = unusedEntries.findIndex(e => (!afterTime || new Date(e.timestamp).getTime() > afterTime));
+            if (idx !== -1) {
+                const entry = unusedEntries[idx];
+                unusedEntries.splice(idx, 1);
+                usedIds.add(entry.id);
+                return entry;
+            }
+        };
+        if (!entrada1) entrada1 = consumeNextUnused();
+        let expectedStart = '08:00';
+        if (isCustomWeekly && customSchedule) {
+            const cfg = customSchedule[String(dow)];
+            if (cfg?.start) expectedStart = cfg.start;
+        } else if (isSegSex716Sab812) {
+            if (dow >= 1 && dow <= 5) expectedStart = '07:00';
+            else if (dow === 6) expectedStart = '08:00';
+        } else if (is12x36) {
+            expectedStart = isNightShift ? '19:00' : '07:00';
+        } else if (isStandard0918 || isId3) {
+            const isSaturdayAlternating = isId2;
+            if (dow === 6 && isSaturdayAlternating && dayEntries.length > 0) expectedStart = '08:00';
+            else expectedStart = '09:00';
+        } else if (isSegQuiSab716Sex711) {
+            expectedStart = '07:00';
+        } else if (is4hMorning || isSegSex08_12) {
+            expectedStart = '08:00';
+        } else if (isSegSex08_11) {
+            expectedStart = '08:00';
+        } else if (isSegSex08_18Sab812) {
+            expectedStart = '08:00';
+        } else if (isSegDom0630_1550) {
+            expectedStart = '06:30';
+        }
+        const expectedStartDate = new Date(day);
+        const [eh, em] = expectedStart.split(':').map(Number);
+        expectedStartDate.setHours(eh, em, 0, 0);
+        if (expectedStart === '07:00' && entrada1) {
+            const h = new Date(entrada1.timestamp).getHours();
+            if (h >= 18) expectedStartDate.setHours(19, 0, 0, 0);
+        }
+        const atrasoMins = (shouldWork && entrada1)
+          ? Math.max(0, Math.round((new Date(entrada1.timestamp).getTime() - expectedStartDate.getTime()) / 60000))
+          : 0;
+        const atrasoEff = atrasoMins <= 5 ? 0 : atrasoMins;
+        if (atrasoEff > 0) {
+            rows.push({
+                date: format(day, 'dd/MM/yyyy'),
+                atraso: `${pad(Math.floor(atrasoEff / 60), 2)}:${pad(atrasoEff % 60, 2)}`
+            });
+        }
+    });
+    const doc = new jsPDF('p', 'mm', 'a4');
+    doc.setFontSize(16);
+    doc.text(`Relatório de Atrasos - ${format(startPeriod, 'MM/yyyy')}`, 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(`Empresa: ${company.name}`, 14, 30);
+    doc.text(`Funcionário: ${emp.name}`, 14, 35);
+    doc.text(`CPF: ${cleanDoc(emp.cpf || '').replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{2})/, '$1.$2.$3-$4')}`, 14, 40);
+    let y = 48;
+    doc.line(14, 43, 196, 43);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Data", 14, y);
+    doc.text("Atraso", 60, y);
+    y += 5;
+    doc.line(14, y, 196, y);
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+    let totalMins = 0;
+    rows.forEach((r) => {
+        doc.text(r.date, 14, y);
+        doc.text(r.atraso, 60, y);
+        const [hh, mm] = r.atraso.split(':').map(Number);
+        totalMins += hh * 60 + mm;
+        y += 7;
+    });
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de Atrasos: ${pad(Math.floor(totalMins / 60), 2)}:${pad(totalMins % 60, 2)}`, 14, y);
+    doc.save(`Relatorio_Atrasos_${format(startPeriod, 'yyyy-MM')}.pdf`);
+}
