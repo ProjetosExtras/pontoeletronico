@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings, Users, FileText, Clock, LogOut, CalendarRange } from "lucide-react"
+import { Calendar, Home, Inbox, Search, Settings, Users, FileText, Clock, LogOut, CalendarRange, BarChart3 } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +36,11 @@ const items = [
     title: "Registros de Ponto",
     url: "/dashboard/pontos",
     icon: Clock,
+  },
+  {
+    title: "Gráficos de Jornada",
+    url: "/dashboard/jornadas",
+    icon: BarChart3,
   },
   {
     title: "Relatórios Fiscais",
