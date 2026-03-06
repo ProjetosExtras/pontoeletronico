@@ -217,13 +217,12 @@ export function ImportEntriesDialog() {
         if (dataRow) {
             for (const [day, colIdx] of Object.entries(dayColumns)) {
                 const cellContentPrimary = dataRow[colIdx];
-                const cellContentSameRow = sameRow[colIdx];
-                // Removido leitura de vizinhos para evitar ler dias subsequentes como se fossem o mesmo dia
-                // const neighbor1 = dataRow[colIdx + 1];
-                // const neighbor2 = dataRow[colIdx + 2];
+                // Removido leitura da mesma linha do funcionário (sameRow) para horários, pois isso pode capturar dias errados
+                // se a estrutura da planilha não for perfeitamente alinhada.
+                // O padrão é: Linha do funcionário (nome) -> Linha de dados (horários) logo abaixo.
+                // Apenas se não houver dataRow é que olhamos a sameRow (caso raro de formatação compacta)
                 
-                // Prioriza linha de dados, mas verifica linha do funcionário também
-                const sources = [cellContentPrimary, cellContentSameRow].filter(Boolean);
+                const sources = [cellContentPrimary].filter(Boolean);
                 const times = sources
                   .map(s => String(s))
                   .join(" ")
