@@ -218,9 +218,12 @@ export function ImportEntriesDialog() {
             for (const [day, colIdx] of Object.entries(dayColumns)) {
                 const cellContentPrimary = dataRow[colIdx];
                 const cellContentSameRow = sameRow[colIdx];
-                const neighbor1 = dataRow[colIdx + 1];
-                const neighbor2 = dataRow[colIdx + 2];
-                const sources = [cellContentPrimary, cellContentSameRow, neighbor1, neighbor2].filter(Boolean);
+                // Removido leitura de vizinhos para evitar ler dias subsequentes como se fossem o mesmo dia
+                // const neighbor1 = dataRow[colIdx + 1];
+                // const neighbor2 = dataRow[colIdx + 2];
+                
+                // Prioriza linha de dados, mas verifica linha do funcionário também
+                const sources = [cellContentPrimary, cellContentSameRow].filter(Boolean);
                 const times = sources
                   .map(s => String(s))
                   .join(" ")
