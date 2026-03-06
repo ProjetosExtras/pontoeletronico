@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInCalendarDays } from "date-fns";
 import { EditEntryDialog } from "@/components/dashboard/EditEntryDialog";
 import { CreateEntryDialog } from "@/components/dashboard/CreateEntryDialog";
 import { ImportEntriesDialog } from "@/components/dashboard/ImportEntriesDialog";
@@ -33,6 +33,8 @@ import { toast } from "sonner";
 type EmployeeOption = {
   id: string;
   name: string;
+  shift_type?: string | null;
+  admission_date?: string | null;
 };
 
 type TimeEntryRow = {
@@ -74,7 +76,7 @@ const TimeClock = () => {
           if (profile?.company_id) {
               const { data } = await supabase
                   .from('employees')
-                  .select('id, name')
+                  .select('id, name, shift_type, admission_date')
                   .eq('company_id', profile.company_id)
                   .order('name');
               setEmployees(data || []);
@@ -235,7 +237,10 @@ const TimeClock = () => {
             const days = eachDayOfInterval({ start, end });
             
             // Get employee name
-            const empName = employees.find(e => e.id === selectedEmployee)?.name || 'Desconhecido';
+            const emp = employees.find(e => e.id === selectedEmployee);
+            const empName = emp?.name || 'Desconhecido';
+            const empShift = emp?.shift_type || null;
+            const empAdmissionDate = emp?.admission_date ? new Date(emp.admission_date) : null;
 
             const entriesByDate = new Map<string, TimeEntryRow[]>();
             finalEntries.forEach(e => {
@@ -253,14 +258,21 @@ const TimeClock = () => {
                 if (dayEntries && dayEntries.length > 0) {
                     fullList.push(...dayEntries);
                 } else {
-                    // Create placeholder entry for empty day
-                    fullList.push({
-                        id: `placeholder-${dateKey}`,
-                        timestamp: `${dateKey}T00:00:00`,
-                        type: 'empty',
-                        employee_id: selectedEmployee,
-                        employees: { name: empName }
-                    });
+                    let isWorkDay = true;
+                    if (empShift === '12x36') {
+                        const anchor = empAdmissionDate || start;
+                        const diff = Math.abs(differenceInCalendarDays(day, anchor));
+                        isWorkDay = diff % 2 === 0;
+                    }
+                    if (isWorkDay) {
+                        fullList.push({
+                            id: `placeholder-${dateKey}`,
+                            timestamp: `${dateKey}T00:00:00`,
+                            type: 'empty',
+                            employee_id: selectedEmployee,
+                            employees: { name: empName }
+                        });
+                    }
                 }
             });
             setEntries(fullList);
