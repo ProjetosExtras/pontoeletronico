@@ -1712,9 +1712,9 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                      if (dow >= 1 && dow <= 5) expectedMinutes = 480;
                      else if (dow === 6) expectedMinutes = 240;
                      else expectedMinutes = 0;
-                 } else if (isSegDom0630_1550) {
-                     expectedMinutes = 440;
-                 } else {
+                } else if (isSegDom0630_1550) {
+                    expectedMinutes = 440;
+                } else {
                      // Default / Standard 09-18
                      if (dow === 0) {
                          expectedMinutes = 0;
@@ -1731,7 +1731,34 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                          expectedMinutes = 480;
                      }
                  }
-                 const shouldWork = expectedMinutes > 0;
+                // Determine expected start time (to compute atraso) — mirrors Espelho logic
+                let expectedStart = '08:00';
+                if (isCustomWeekly && customSchedule) {
+                    const cfg = customSchedule[String(dow)];
+                    if (cfg?.start) expectedStart = cfg.start;
+                } else if (isSegSex716Sab812) {
+                    if (dow >= 1 && dow <= 5) expectedStart = '07:00';
+                    else if (dow === 6) expectedStart = '08:00';
+                } else if (is12x36) {
+                    expectedStart = isNightShift ? '19:00' : '07:00';
+                } else if (isStandard0918 || isId3) {
+                    if (dow === 6 && isSaturdayAlternating && dayEntries.length > 0) {
+                        expectedStart = '08:00';
+                    } else {
+                        expectedStart = '09:00';
+                    }
+                } else if (isSegQuiSab716Sex711) {
+                    expectedStart = '07:00';
+                } else if (is4hMorning || isSegSex08_12) {
+                    expectedStart = '08:00';
+                } else if (isSegSex08_11) {
+                    expectedStart = '08:00';
+                } else if (isSegSex08_18Sab812) {
+                    expectedStart = '08:00';
+                } else if (isSegDom0630_1550) {
+                    expectedStart = '06:30';
+                }
+                const shouldWork = expectedMinutes > 0;
 
                  // --- Entries Processing (Lookahead + Sorting + Deduplication) ---
                  const hasAbono = dayEntries.some(e => e.type === 'abono');
