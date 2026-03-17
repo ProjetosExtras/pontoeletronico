@@ -26,7 +26,9 @@ import { format } from "date-fns";
 export function RelatorioAtrasosDialog() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<
+    { id: string; name: string; code: string | null; shift_type: string | null }[]
+  >([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"));
   const [shiftType, setShiftType] = useState<string>("auto");
@@ -76,8 +78,9 @@ export function RelatorioAtrasosDialog() {
       await generateRelatorioAtrasosPDF(selectedEmployee, selectedMonth, shiftType);
       toast.success("Relatório de Atrasos gerado com sucesso!");
       setOpen(false);
-    } catch (error: any) {
-      toast.error(`Erro ao gerar PDF: ${error.message}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Erro desconhecido.";
+      toast.error(`Erro ao gerar PDF: ${msg}`);
     } finally {
       setLoading(false);
     }

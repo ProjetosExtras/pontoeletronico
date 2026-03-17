@@ -35,8 +35,9 @@ const Reports = () => {
         const currentMonth = format(new Date(), 'yyyy-MM');
         await generateEspelhoPDF('all', currentMonth, 'auto');
         toast.success("Espelhos de Ponto (Todos - Mês Atual) gerados com sucesso!");
-    } catch (error: any) {
-        toast.error(`Erro ao gerar PDF: ${error.message}`);
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido.";
+        toast.error(`Erro ao gerar PDF: ${msg}`);
     } finally {
         setLoading(null);
     }
