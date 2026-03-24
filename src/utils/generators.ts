@@ -966,7 +966,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     else if (dow === 6) expectedMinutes = 480;
                     else expectedMinutes = 0;
                 } else if (is12x36) {
-                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '24' || empCode === '25') {
+                    if (empCode === '12' || empCode === '32' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '26' || empCode === '5' || empCode === '22' || empCode === '24' || empCode === '25' || empCode === '34') {
                         expectedMinutes = hasAnyEntry ? 660 : 0;
                     } else {
                         expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
@@ -1723,7 +1723,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                      else if (dow === 6) expectedMinutes = 480;
                      else expectedMinutes = 0;
                  } else if (is12x36) {
-                     if (['12','32','10','31','13','28','11','26','5','22','24','25'].includes(empCode)) {
+                     if (['12','32','10','31','13','28','11','26','5','22','24','25','34'].includes(empCode)) {
                          expectedMinutes = hasAnyEntry ? 660 : 0;
                      } else {
                          expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
@@ -2121,7 +2121,12 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
             else if (dow === 6) expectedMinutes = 480;
             else expectedMinutes = 0;
         } else if (is12x36) {
-            expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+            if (empCode === '34' && isNightShift) {
+                const hasStartPunch = dayEntries.some((e) => new Date(e.timestamp).getHours() >= 18);
+                expectedMinutes = hasStartPunch ? 660 : 0;
+            } else {
+                expectedMinutes = Math.abs(differenceInCalendarDays(day, anchorDay)) % 2 === 0 ? 660 : 0;
+            }
         } else if (is3hMorning) {
             if (dow >= 1 && dow <= 5) expectedMinutes = 180;
             else if (dow === 6 && hasSaturdayWork) expectedMinutes = 180;
