@@ -542,12 +542,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             // IDs that are definitely 12x36 (Forced for specific IDs to ensure correctness regardless of DB)
-            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25');
-            const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
+            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '34');
+            const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
-                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '14';
+                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '34';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -1632,11 +1632,11 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  if (['18', '19', '20'].includes(empCode)) { isSegDom0630_1550 = true; is12x36 = false; }
              }
 
-             const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25');
-             const shouldForce12x36 = ['10', '14', '24', '26', '31', '25'].includes(empCode);
+             const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '34');
+             const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
-                 isNightShift = ['10', '31', '26', '14'].includes(empCode);
+                isNightShift = ['10', '31', '26', '34'].includes(empCode);
                  is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
              }
 
