@@ -588,6 +588,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             const consumedEntryIds = new Set<string>();
+            const keepLookaheadConsumed = isNightShift && empCode === '34';
 
             // PRE-PROCESS PREVIOUS DAY (Lookahead Logic for Night Shift)
             // This ensures that if a shift started on the previous day (before startPeriod),
@@ -618,7 +619,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                      const lookAheadLimit = isNightShift ? 14 : 6;
                      const nextDayShiftEntries = nextDayEntries.filter(e => {
                          const h = new Date(e.timestamp).getHours();
-                         return h < lookAheadLimit; 
+                         return h < lookAheadLimit && e.type !== 'abono';
                      });
 
                      if (nextDayShiftEntries.length > 0) {
@@ -1051,7 +1052,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     const lookAheadLimit = isNightShift ? 14 : 6;
                     const nextDayShiftEntries = nextDayEntries.filter(e => {
                         const h = new Date(e.timestamp).getHours();
-                        return h < lookAheadLimit && !consumedEntryIds.has(e.id);
+                        return h < lookAheadLimit && !consumedEntryIds.has(e.id) && e.type !== 'abono';
                     });
 
                     if (nextDayShiftEntries.length > 0) {
@@ -1319,16 +1320,23 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 totalAdicionalNoturno += nightMinutes;
                 totalAtrasos += atrasoMinutes;
 
+                const normalizeText = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+                const justificationsList = dayEntries.map(e => e.justification).filter((j): j is string => !!j && String(j).trim().length > 0);
+                const hasFeriasAbono = hasAbono && justificationsList.some(j => normalizeText(j).includes('FERIAS'));
+                const onlyFeriasJustification = hasFeriasAbono && justificationsList.every(j => normalizeText(j).includes('FERIAS'));
+
                 const obsParts: string[] = [];
                 if (atrasoMinutes > 0) obsParts.push(`ATRASO ${formatMinutes(atrasoMinutes)}`);
+                if (hasAbono && !hasFeriasAbono) obsParts.unshift('ABONO');
                 
 
                 // Collect Justifications
-                const justifications = dayEntries
-                    .map(e => e.justification)
-                    .filter(j => j)
-                    .join('; ');
-                if (justifications) obsParts.push(justifications.toUpperCase());
+                if (onlyFeriasJustification) {
+                    obsParts.push('FÉRIAS');
+                } else {
+                    const justifications = justificationsList.join('; ');
+                    if (justifications) obsParts.push(justifications.toUpperCase());
+                }
 
                 if (dow === 6 && isSaturdayAlternating && !shouldWork && !hasAnyEntry) {
                     obsParts.length = 0;
@@ -1341,6 +1349,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     <td>${t3}</td>
                     <td>${t4}</td>
                 `;
+                if (hasAbono && normalEntries.length === 0) {
+                    timeCells = `<td colspan="4" style="text-align: center; font-weight: 600;">${onlyFeriasJustification ? 'FÉRIAS' : 'ABONO'}</td>`;
+                }
 
                 if (!hasAnyEntry) {
                     if (!shouldWork) {
@@ -1374,10 +1385,10 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     </tr>
                 `;
 
-                if (lookedAheadEntries.length > 0) {
-                     lookedAheadEntries.forEach(e => {
-                         if (!usedIds.has(e.id)) consumedEntryIds.delete(e.id);
-                     });
+                if (lookedAheadEntries.length > 0 && !keepLookaheadConsumed) {
+                    lookedAheadEntries.forEach(e => {
+                        if (!usedIds.has(e.id)) consumedEntryIds.delete(e.id);
+                    });
                 }
             });
 
@@ -1661,25 +1672,25 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const consumedEntryIds = new Set<string>();
 
              // Pre-process Previous Day for Night Shift Lookahead
-             const prevDay = subDays(startPeriod, 1);
-             const prevDayKey = format(prevDay, 'yyyy-MM-dd');
-             const prevDayEntries = entriesByDay.get(prevDayKey) || [];
-             if (prevDayEntries.length > 0) {
-                 const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
-                 const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
-                 const lastEntryPrev = normalEntriesPrev[normalEntriesPrev.length - 1];
-                 const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
-                 const seemsIncompletePrev = lastEntryPrev && ((lastEntryPrev.type === 'entrada' || lastEntryPrev.type === 'retorno') || (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo'));
-                 
-                 if (isNightShift || (lastHourPrev >= 18 && seemsIncompletePrev)) {
-                     const nextDay = addDays(prevDay, 1);
-                     const nextKey = format(nextDay, 'yyyy-MM-dd');
-                     const nextDayEntries = entriesByDay.get(nextKey) || [];
-                     const lookAheadLimit = isNightShift ? 14 : 6;
-                     const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit);
-                     nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
-                 }
-             }
+            const prevDay = subDays(startPeriod, 1);
+            const prevDayKey = format(prevDay, 'yyyy-MM-dd');
+            const prevDayEntries = entriesByDay.get(prevDayKey) || [];
+            if (prevDayEntries.length > 0) {
+                const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
+                const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
+                const lastEntryPrev = normalEntriesPrev[normalEntriesPrev.length - 1];
+                const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
+                const seemsIncompletePrev = lastEntryPrev && ((lastEntryPrev.type === 'entrada' || lastEntryPrev.type === 'retorno') || (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo'));
+                
+                if (isNightShift || (lastHourPrev >= 18 && seemsIncompletePrev)) {
+                    const nextDay = addDays(prevDay, 1);
+                    const nextKey = format(nextDay, 'yyyy-MM-dd');
+                    const nextDayEntries = entriesByDay.get(nextKey) || [];
+                    const lookAheadLimit = isNightShift ? 14 : 6;
+                    const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit && e.type !== 'abono');
+                    nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
+                }
+            }
 
              const isId3 = empCode === '3';
              const isId2 = empCode === '2';
@@ -1693,6 +1704,14 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  
                  let dayEntries = entriesByDay.get(key) || [];
                  dayEntries = dayEntries.filter(e => !consumedEntryIds.has(e.id));
+                 
+                 if (isNightShift && empCode === '34') {
+                     const hasMorningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() < 14);
+                     const hasEveningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() >= 18);
+                     if (hasMorningNonAbono && !hasEveningNonAbono) {
+                         dayEntries = dayEntries.filter((e) => e.type === 'abono');
+                     }
+                 }
                  
                  const hasAnyEntry = dayEntries.length > 0;
                  const isPast = day.getTime() < todayStart.getTime();
@@ -1800,13 +1819,13 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  const lastHour = lastEntry ? new Date(lastEntry.timestamp).getHours() : 0;
                  const seemsIncomplete = lastEntry && ((lastEntry.type === 'entrada' || lastEntry.type === 'retorno') || (normalEntries.length % 2 !== 0 && lastEntry.type !== 'saida' && lastEntry.type !== 'intervalo'));
                  
-                 let lookedAheadEntries: TimeEntryRow[] = [];
-                 if ((isNightShift || (lastHour >= 18 && seemsIncomplete)) && normalEntries.length > 0) {
+                let lookedAheadEntries: TimeEntryRow[] = [];
+                if ((isNightShift || (lastHour >= 18 && seemsIncomplete)) && normalEntries.length > 0) {
                      const nextDay = addDays(day, 1);
                      const nextKey = format(nextDay, 'yyyy-MM-dd');
                      const nextDayEntries = entriesByDay.get(nextKey) || [];
                      const lookAheadLimit = isNightShift ? 14 : 6;
-                     const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit && !consumedEntryIds.has(e.id));
+                    const nextDayShiftEntries = nextDayEntries.filter(e => new Date(e.timestamp).getHours() < lookAheadLimit && !consumedEntryIds.has(e.id) && e.type !== 'abono');
                      if (nextDayShiftEntries.length > 0) {
                          nextDayShiftEntries.forEach(e => consumedEntryIds.add(e.id));
                          normalEntries.push(...nextDayShiftEntries);
