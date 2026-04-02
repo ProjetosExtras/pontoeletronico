@@ -383,9 +383,9 @@ const TimeClock = () => {
     }
   };
 
-  const handleDeleteEntry = async () => {
-    if (!entryToDelete) return;
+  const handleDeleteEntry = async (idToDelete: string) => {
     try {
+        setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         const { data: profile } = await supabase
             .from('profiles')
@@ -395,13 +395,14 @@ const TimeClock = () => {
 
         if (!profile?.company_id) {
             toast.error("Empresa não encontrada para este usuário.");
+            setLoading(false);
             return;
         }
 
         const { data, error } = await supabase
             .from('time_entries')
             .delete()
-            .eq('id', entryToDelete)
+            .eq('id', idToDelete)
             .eq('company_id', profile.company_id)
             .select();
 
@@ -413,10 +414,11 @@ const TimeClock = () => {
             toast.success("Registro excluído com sucesso!");
         }
 
-        fetchEntries();
+        await fetchEntries();
     } catch (error) {
         console.error("Error deleting entry:", error);
         toast.error("Erro ao excluir registro.");
+        setLoading(false);
     } finally {
         setEntryToDelete(null);
     }

@@ -588,7 +588,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             const consumedEntryIds = new Set<string>();
-            const keepLookaheadConsumed = isNightShift && empCode === '34';
+            const keepLookaheadConsumed = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
 
             // PRE-PROCESS PREVIOUS DAY (Lookahead Logic for Night Shift)
             // This ensures that if a shift started on the previous day (before startPeriod),
@@ -609,7 +609,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                      (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo')
                  );
 
-                 const shouldLookAheadPrev = isNightShift || (lastHourPrev >= 18 && seemsIncompletePrev);
+                 const hasLateStartPrev = normalEntriesPrev.some(e => new Date(e.timestamp).getHours() >= 18);
+                 const forceNightLookaheadPrev = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
+                 const shouldLookAheadPrev = forceNightLookaheadPrev ? hasLateStartPrev : (isNightShift || (hasLateStartPrev && seemsIncompletePrev));
                  
                  if (shouldLookAheadPrev) {
                      const nextDay = addDays(prevDay, 1);
@@ -1056,7 +1058,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     (normalEntries.length % 2 !== 0 && lastEntry.type !== 'saida' && lastEntry.type !== 'intervalo')
                 );
                 
-                const shouldLookAhead = isNightShift || (lastHour >= 18 && seemsIncomplete);
+                const hasLateStart = normalEntries.some(e => new Date(e.timestamp).getHours() >= 18);
+                const forceNightLookahead = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
+                const shouldLookAhead = forceNightLookahead ? hasLateStart : (isNightShift || (hasLateStart && seemsIncomplete));
                 let lookedAheadEntries: TimeEntryRow[] = [];
 
                 if (shouldLookAhead && normalEntries.length > 0) {
