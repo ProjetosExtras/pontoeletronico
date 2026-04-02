@@ -598,8 +598,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             const prevDayEntries = entriesByDay.get(prevDayKey) || [];
             
             if (prevDayEntries.length > 0) {
-                 const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
-                 const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
+                 const normalEntriesPrev = prevDayEntries.filter(e => e.type !== 'abono');
                  
                  const lastEntryPrev = normalEntriesPrev.length > 0 ? normalEntriesPrev[normalEntriesPrev.length - 1] : null;
                  const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
@@ -1698,8 +1697,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
             const prevDayKey = format(prevDay, 'yyyy-MM-dd');
             const prevDayEntries = entriesByDay.get(prevDayKey) || [];
             if (prevDayEntries.length > 0) {
-                const hasAbonoPrev = prevDayEntries.some(e => e.type === 'abono');
-                const normalEntriesPrev = hasAbonoPrev ? [] : prevDayEntries.filter(e => e.type !== 'abono');
+                const normalEntriesPrev = prevDayEntries.filter(e => e.type !== 'abono');
                 const lastEntryPrev = normalEntriesPrev[normalEntriesPrev.length - 1];
                 const lastHourPrev = lastEntryPrev ? new Date(lastEntryPrev.timestamp).getHours() : 0;
                 const seemsIncompletePrev = lastEntryPrev && ((lastEntryPrev.type === 'entrada' || lastEntryPrev.type === 'retorno') || (normalEntriesPrev.length % 2 !== 0 && lastEntryPrev.type !== 'saida' && lastEntryPrev.type !== 'intervalo'));
