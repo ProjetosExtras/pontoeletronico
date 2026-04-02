@@ -547,7 +547,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
-                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '34';
+                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '34' || empCode === '14';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -1023,8 +1023,26 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 };
 
                 const hasAbono = dayEntries.some(e => e.type === 'abono');
-                // Se houver abono, ignoramos as marcações de horário para não "sujar" o espelho
-                let normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
+                // ABONO pode coexistir com marcações (ex.: abono parcial). Só exibimos "ABONO" no dia
+                // quando não houver nenhuma marcação de ponto normal.
+                let normalEntries = dayEntries.filter(e => e.type !== 'abono');
+
+                if (isNightShift && ['10', '14', '26', '31', '34'].includes(empCode)) {
+                    normalEntries = normalEntries.map((e) => {
+                        const d = new Date(e.timestamp);
+                        const hour = d.getHours();
+                        let nextType = e.type || undefined;
+                        if (hour >= 6 && hour < 9) {
+                            nextType = 'saida';
+                        } else if (hour >= 18 && hour < 21) {
+                            nextType = 'entrada';
+                        } else if (hour >= 23 || hour < 5) {
+                            if (e.type === 'saida') nextType = 'intervalo';
+                            if (e.type === 'entrada') nextType = 'retorno';
+                        }
+                        return { ...e, type: nextType };
+                    });
+                }
 
                 // Night Shift Lookahead Logic
                 const lastEntry = normalEntries.length > 0 ? normalEntries[normalEntries.length - 1] : null;
@@ -1647,7 +1665,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
-                isNightShift = ['10', '31', '26', '34'].includes(empCode);
+                isNightShift = ['10', '31', '26', '34', '14'].includes(empCode);
                  is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
              }
 
