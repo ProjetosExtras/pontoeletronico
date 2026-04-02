@@ -547,7 +547,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
-                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '34' || empCode === '14';
+                isNightShift = empCode === '10' || empCode === '31' || empCode === '26' || empCode === '34';
                 is3hMorning = false;
                 isStandard0918 = false;
                 isSegQuiSab716Sex711 = false;
@@ -588,7 +588,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             const consumedEntryIds = new Set<string>();
-            const keepLookaheadConsumed = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
+            const keepLookaheadConsumed = isNightShift && ['10', '26', '31', '34'].includes(empCode);
 
             // PRE-PROCESS PREVIOUS DAY (Lookahead Logic for Night Shift)
             // This ensures that if a shift started on the previous day (before startPeriod),
@@ -610,7 +610,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                  );
 
                  const hasLateStartPrev = normalEntriesPrev.some(e => new Date(e.timestamp).getHours() >= 18);
-                 const forceNightLookaheadPrev = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
+                 const forceNightLookaheadPrev = isNightShift && ['10', '26', '31', '34'].includes(empCode);
                  const shouldLookAheadPrev = forceNightLookaheadPrev ? hasLateStartPrev : (isNightShift || (hasLateStartPrev && seemsIncompletePrev));
                  
                  if (shouldLookAheadPrev) {
@@ -1029,7 +1029,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // quando não houver nenhuma marcação de ponto normal.
                 let normalEntries = dayEntries.filter(e => e.type !== 'abono');
 
-                if (isNightShift && ['10', '14', '26', '31', '34'].includes(empCode)) {
+                if (isNightShift && ['10', '26', '31', '34'].includes(empCode)) {
                     normalEntries = normalEntries.map((e) => {
                         const d = new Date(e.timestamp);
                         const hour = d.getHours();
@@ -1059,7 +1059,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 );
                 
                 const hasLateStart = normalEntries.some(e => new Date(e.timestamp).getHours() >= 18);
-                const forceNightLookahead = isNightShift && ['10', '14', '26', '31', '34'].includes(empCode);
+                const forceNightLookahead = isNightShift && ['10', '26', '31', '34'].includes(empCode);
                 const shouldLookAhead = forceNightLookahead ? hasLateStart : (isNightShift || (hasLateStart && seemsIncomplete));
                 let lookedAheadEntries: TimeEntryRow[] = [];
 
@@ -1669,7 +1669,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
              const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
-                isNightShift = ['10', '31', '26', '34', '14'].includes(empCode);
+                isNightShift = ['10', '31', '26', '34'].includes(empCode);
                  is3hMorning = false; isStandard0918 = false; isSegQuiSab716Sex711 = false; isCustomWeekly = false; isSegSex716Sab812 = false;
              }
 
