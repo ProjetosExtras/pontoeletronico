@@ -906,12 +906,19 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // Get entries and filter consumed ones
                 let dayEntries = entriesByDay.get(key) || [];
                 dayEntries = dayEntries.filter(e => !consumedEntryIds.has(e.id));
+
+                if (isNightShift && ['10', '26', '31', '34'].includes(empCode)) {
+                    const hasMorningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() < 14);
+                    const hasEveningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() >= 18);
+                    if (hasMorningNonAbono && !hasEveningNonAbono) {
+                        dayEntries = dayEntries.filter((e) => e.type === 'abono');
+                    }
+                }
                 
                 const hasAnyEntry = dayEntries.length > 0;
                 const isPast = day.getTime() < todayStart.getTime();
 
                 // Calculate Hours
-                const empCode = String(empData.code || '');
                 const isId3 = empCode === '3';
                 const isId2 = empCode === '2';
                 const isSaturdayAlternating = isId2 || isId3;
@@ -1725,7 +1732,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  let dayEntries = entriesByDay.get(key) || [];
                  dayEntries = dayEntries.filter(e => !consumedEntryIds.has(e.id));
                  
-                 if (isNightShift && empCode === '34') {
+                if (isNightShift && ['10', '26', '31', '34'].includes(empCode)) {
                      const hasMorningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() < 14);
                      const hasEveningNonAbono = dayEntries.some((e) => e.type !== 'abono' && new Date(e.timestamp).getHours() >= 18);
                      if (hasMorningNonAbono && !hasEveningNonAbono) {
@@ -2132,7 +2139,7 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
         const key = format(day, 'yyyy-MM-dd');
         const dayEntries = entriesByDay.get(key) || [];
         const hasAbono = dayEntries.some(e => e.type === 'abono');
-        let normalEntries = hasAbono ? [] : dayEntries.filter(e => e.type !== 'abono');
+        let normalEntries = dayEntries.filter(e => e.type !== 'abono');
         const hasAnyEntry = dayEntries.length > 0;
         const isPast = day.getTime() < todayStart.getTime();
         const dow = getDay(day);
