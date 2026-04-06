@@ -1292,7 +1292,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     faltasMinutes = expectedMinutes;
                     atrasoMinutes = faltasMinutes;
                 } else if (shouldWork && hasAnyEntry) {
-                    const tolBatida = (mins: number) => (mins > 5 ? mins : 0);
+                    const tolBatida = (mins: number) => (mins <= 5 ? 0 : mins);
                     const expectedEndDate = new Date(expectedStartDate.getTime() + (expectedMinutes + stipulatedInterval) * 60000);
                     const actualStartDate = entrada1 ? new Date(entrada1.timestamp) : undefined;
                     const endEntry = saida2 || saida1;
@@ -1329,8 +1329,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         tolBatida(saidaAntecipadaRaw) +
                         tolBatida(faltaIntervalRaw);
 
-                    const extrasCandidate = extrasRawTotal > 10 ? extrasRawTotal : extrasTolTotal;
-                    const faltasCandidate = (isPast && !hasAbono) ? (faltasRawTotal > 10 ? faltasRawTotal : faltasTolTotal) : 0;
+                    const extrasCandidate = extrasTolTotal;
+                    const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
 
                     if (extrasCandidate > faltasCandidate) {
                         extrasMinutes = extrasCandidate - faltasCandidate;
@@ -2300,7 +2300,7 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
         if (shouldWork && isPast && !hasAnyEntry && !hasAbono) {
             atrasoMinutes = expectedMinutes;
         } else if (shouldWork && hasAnyEntry) {
-            const tolBatida = (mins: number) => (mins > 5 ? mins : 0);
+            const tolBatida = (mins: number) => (mins <= 5 ? 0 : mins);
             const expectedEndDate = new Date(expectedStartDate.getTime() + (expectedMinutes + stipulatedInterval) * 60000);
             const actualStartDate = entrada1 ? new Date(entrada1.timestamp) : undefined;
             const endEntry = saida2 || saida1;
@@ -2337,8 +2337,8 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
                 tolBatida(saidaAntecipadaRaw) +
                 tolBatida(faltaIntervalRaw);
 
-            const extrasCandidate = extrasRawTotal > 10 ? extrasRawTotal : extrasTolTotal;
-            const faltasCandidate = (isPast && !hasAbono) ? (faltasRawTotal > 10 ? faltasRawTotal : faltasTolTotal) : 0;
+            const extrasCandidate = extrasTolTotal;
+            const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
 
             atrasoMinutes = Math.max(0, faltasCandidate - extrasCandidate);
         }
