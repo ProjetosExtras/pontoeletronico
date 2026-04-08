@@ -1339,6 +1339,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         faltasMinutes = faltasCandidate - extrasCandidate;
                         extrasMinutes = 0;
                     }
+                    if (extrasMinutes <= 5) extrasMinutes = 0;
+                    if (faltasMinutes <= 5) faltasMinutes = 0;
                     atrasoMinutes = faltasMinutes;
                 }
 
@@ -1958,6 +1960,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                 // Removed dailyLimit compensation rule as requested
                 // const dailyLimitAej = 10; 
                 let extrasMinutes = extrasEffRawAej;
+                if (extrasMinutes <= 5) extrasMinutes = 0;
 
                 /* 
                    Old logic removed:
@@ -2341,6 +2344,7 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
             const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
 
             atrasoMinutes = Math.max(0, faltasCandidate - extrasCandidate);
+            if (atrasoMinutes <= 5) atrasoMinutes = 0;
         }
 
         if (atrasoMinutes > 0) {
