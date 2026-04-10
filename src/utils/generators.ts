@@ -1332,13 +1332,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     const extrasCandidate = extrasTolTotal;
                     const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
 
-                    if (extrasCandidate > faltasCandidate) {
-                        extrasMinutes = extrasCandidate - faltasCandidate;
-                        faltasMinutes = 0;
-                    } else {
-                        faltasMinutes = faltasCandidate - extrasCandidate;
-                        extrasMinutes = 0;
-                    }
+                    extrasMinutes = extrasCandidate;
+                    faltasMinutes = faltasCandidate;
                     if (extrasMinutes <= 5) extrasMinutes = 0;
                     if (faltasMinutes <= 5) faltasMinutes = 0;
                     atrasoMinutes = faltasMinutes;
