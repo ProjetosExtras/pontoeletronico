@@ -865,22 +865,24 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 <table class="main-table">
                     <thead>
                         <tr>
-                            <th width="15%">DATA</th>
+                            <th width="14%">DATA</th>
                             <th width="7%">ENT. 1</th>
                             <th width="7%">SAÍ. 1</th>
                             <th width="7%">ENT. 2</th>
                             <th width="7%">SAÍ. 2</th>
                             <th width="5%">INT</th>
-                            <th width="9%">NORMAIS</th>
-                            <th width="9%">FALTAS</th>
-                            <th width="9%">EXTRAS</th>
-                            <th width="9%">AD. NOT</th>
-                            <th width="16%">OBS</th>
+                            <th width="8%">TOTAL</th>
+                            <th width="8%">NORMAIS</th>
+                            <th width="8%">FALTAS</th>
+                            <th width="8%">EXTRAS</th>
+                            <th width="8%">AD. NOT</th>
+                            <th width="13%">OBS</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
+            let totalTrabalhadas = 0;
             let totalNormais = 0;
             let totalFaltas = 0;
             let totalExtras = 0;
@@ -1344,6 +1346,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 totalExtras += extrasMinutes;
                 totalAdicionalNoturno += nightMinutes;
                 totalAtrasos += atrasoMinutes;
+                totalTrabalhadas += workedMinutes;
 
                 const normalizeText = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
                 const justificationsList = dayEntries.map(e => e.justification).filter((j): j is string => !!j && String(j).trim().length > 0);
@@ -1396,12 +1399,14 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const obs = obsParts.join(' | ');
 
                 const intervalStr = intervalMinutes > 0 ? formatMinutes(intervalMinutes) : '';
+                const totalStr = workedMinutes > 0 ? formatMinutes(workedMinutes) : '';
 
                 html += `
                     <tr class="${rowClass}">
                         <td class="row-day">${dayStr}</td>
                         ${timeCells}
                         <td style="font-size: 8px; text-align: center;">${intervalStr}</td>
+                        <td>${totalStr}</td>
                         <td>${normais}</td>
                         <td>${faltas}</td>
                         <td>${extras}</td>
@@ -1431,6 +1436,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                         <td></td>
                         <td></td>
                         <td></td>
+                        <td>${formatMinutes(totalTrabalhadas)}</td>
                         <td>${formatMinutes(totalNormais)}</td>
                         <td>${formatMinutes(totalFaltas)}</td>
                         <td>${formatMinutes(totalExtras)}</td>
