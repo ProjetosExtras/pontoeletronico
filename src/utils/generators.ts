@@ -1068,7 +1068,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 
                 const hasLateStart = normalEntries.some(e => new Date(e.timestamp).getHours() >= 18);
                 const forceNightLookahead = isNightShift && ['10', '26', '31', '34'].includes(empCode);
-                const shouldLookAhead = forceNightLookahead ? hasLateStart : (isNightShift || (hasLateStart && seemsIncomplete));
+                const shouldLookAhead = forceNightLookahead ? hasLateStart : (isNightShift || (!is12x36 && hasLateStart && seemsIncomplete));
                 let lookedAheadEntries: TimeEntryRow[] = [];
 
                 if (shouldLookAhead && normalEntries.length > 0) {
@@ -1099,7 +1099,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 // FIX: Detect and fix mis-dated night shift exits (e.g. 07:00 on same day as 19:00 start)
                 const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
-                if (startEntry) {
+                if (isNightShift && startEntry) {
                      normalEntries.forEach(e => {
                          const d = new Date(e.timestamp);
                          const h = d.getHours();
@@ -1883,7 +1883,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  const seemsIncomplete = lastEntry && ((lastEntry.type === 'entrada' || lastEntry.type === 'retorno') || (normalEntries.length % 2 !== 0 && lastEntry.type !== 'saida' && lastEntry.type !== 'intervalo'));
                  
                 let lookedAheadEntries: TimeEntryRow[] = [];
-                if ((isNightShift || (lastHour >= 18 && seemsIncomplete)) && normalEntries.length > 0) {
+                if ((isNightShift || (!is12x36 && lastHour >= 18 && seemsIncomplete)) && normalEntries.length > 0) {
                      const nextDay = addDays(day, 1);
                      const nextKey = format(nextDay, 'yyyy-MM-dd');
                      const nextDayEntries = entriesByDay.get(nextKey) || [];
@@ -1902,7 +1902,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
 
                  // Fix mis-dated night shift exits
                  const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
-                 if (startEntry) {
+                 if (isNightShift && startEntry) {
                      normalEntries.forEach(e => {
                          const d = new Date(e.timestamp);
                          if (d.getHours() < 13 && d.getTime() < new Date(startEntry.timestamp).getTime()) {
@@ -1914,14 +1914,27 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
 
                  // --- Assignment Logic ---
                  const usedIds = new Set<string>();
-                 let entrada1 = normalEntries.find(e => e.type === 'entrada');
-                 if (entrada1) usedIds.add(entrada1.id);
-                 let saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
-                 if (saida1) usedIds.add(saida1.id);
-                 let entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
-                 if (entrada2) usedIds.add(entrada2.id);
-                 let saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
-                 if (saida2) usedIds.add(saida2.id);
+                 let entrada1: TimeEntryRow | undefined;
+                 let saida1: TimeEntryRow | undefined;
+                 let entrada2: TimeEntryRow | undefined;
+                 let saida2: TimeEntryRow | undefined;
+                 
+                 if (is12x36 && !isNightShift && normalEntries.length === 4) {
+                     [entrada1, saida1, entrada2, saida2] = normalEntries;
+                     usedIds.add(entrada1.id);
+                     usedIds.add(saida1.id);
+                     usedIds.add(entrada2.id);
+                     usedIds.add(saida2.id);
+                 } else {
+                     entrada1 = normalEntries.find(e => e.type === 'entrada');
+                     if (entrada1) usedIds.add(entrada1.id);
+                     saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
+                     if (saida1) usedIds.add(saida1.id);
+                     entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
+                     if (entrada2) usedIds.add(entrada2.id);
+                     saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
+                     if (saida2) usedIds.add(saida2.id);
+                 }
 
                  const unusedEntries = normalEntries.filter(e => !usedIds.has(e.id));
                  const consumeNextUnused = (afterTime?: number) => {
@@ -1942,7 +1955,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  const t3Time = entrada2 ? new Date(entrada2.timestamp).getTime() : t2Time;
                  if (!saida2) saida2 = consumeNextUnused(t3Time);
 
-                 if (!saida2 && unusedEntries.length > 0) {
+                 if (isNightShift && !saida2 && unusedEntries.length > 0) {
                      const morningExitIndex = unusedEntries.findIndex(e => new Date(e.timestamp).getHours() < 13);
                      if (morningExitIndex !== -1) {
                          saida2 = unusedEntries[morningExitIndex];
@@ -2265,7 +2278,7 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
         normalEntries.forEach(e => uniqueMap.set(new Date(e.timestamp).getTime(), e));
         normalEntries = Array.from(uniqueMap.values());
         const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
-        if (startEntry) {
+        if (isNightShift && startEntry) {
             normalEntries.forEach(e => {
                 const d = new Date(e.timestamp);
                 if (d.getHours() < 13 && d.getTime() < new Date(startEntry.timestamp).getTime()) {
