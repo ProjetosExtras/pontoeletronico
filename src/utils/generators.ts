@@ -542,8 +542,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
             }
 
             // IDs that are definitely 12x36 (Forced for specific IDs to ensure correctness regardless of DB)
-            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '34');
-            const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
+            const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '29' || empCode === '34');
+            const shouldForce12x36 = ['10', '14', '24', '26', '29', '31', '25', '34'].includes(empCode);
 
             if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                 is12x36 = true;
@@ -581,8 +581,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     anchorDay = new Date('2024-01-01T00:00:00');
                 }
 
-                // Ajuste de inversão para ID 30, 32 e 12
-                if (empCode === '30' || empCode === '12' || empCode === '32') {
+                // Ajuste de inversão para alguns IDs (fase da escala 12x36)
+                if (empCode === '30' || empCode === '12' || empCode === '29' || empCode === '32') {
                      anchorDay = addDays(anchorDay, 1);
                 }
             }
@@ -1707,8 +1707,8 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  if (['18', '19', '20'].includes(empCode)) { isSegDom0630_1550 = true; is12x36 = false; }
              }
 
-             const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '34');
-             const shouldForce12x36 = ['10', '14', '24', '26', '31', '25', '34'].includes(empCode);
+             const isTarget12x36 = (empCode === '30' || empCode === '12' || empCode === '10' || empCode === '31' || empCode === '13' || empCode === '28' || empCode === '11' || empCode === '5' || empCode === '22' || empCode === '14' || empCode === '26' || empCode === '24' || empCode === '25' || empCode === '29' || empCode === '34');
+             const shouldForce12x36 = ['10', '14', '24', '26', '29', '31', '25', '34'].includes(empCode);
              if (isTarget12x36 && (!hasExplicitConfig || shouldForce12x36)) {
                  is12x36 = true;
                 isNightShift = ['10', '31', '26', '34'].includes(empCode);
@@ -1730,7 +1730,7 @@ export const generateRelatorioExtrasPDF = async (employeeId: string, monthStr: s
                  } else if (empCode === '12' || empCode === '30') {
                      anchorDay = new Date('2024-01-01T00:00:00');
                  }
-                 if (['30', '12', '32'].includes(empCode)) anchorDay = addDays(anchorDay, 1);
+                 if (['30', '12', '29', '32'].includes(empCode)) anchorDay = addDays(anchorDay, 1);
              }
 
              const consumedEntryIds = new Set<string>();
@@ -2183,6 +2183,7 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
     if (is12x36 || is3hMorning) {
         if (emp.admission_date) anchorDay = new Date(String(emp.admission_date).split('T')[0]);
         else if (empCode === '12' || empCode === '30') anchorDay = new Date('2024-01-01');
+        if (['30', '12', '29', '32'].includes(empCode)) anchorDay = addDays(anchorDay, 1);
     }
     const rows: { date: string; atraso: string }[] = [];
     daysInMonth.forEach((day) => {
