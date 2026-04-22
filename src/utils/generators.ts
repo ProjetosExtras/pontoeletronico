@@ -1116,22 +1116,35 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // Sort again after potential timestamp fixes
                 normalEntries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                 
-                // Assignment Logic: Types first, then remaining slots
+                // Assignment Logic: For 12x36 diurno, prefer chronological slots to avoid mis-typed manual adjustments
                 const usedIds = new Set<string>();
                 
-                // 1. Try assign by type
-                let entrada1 = normalEntries.find(e => e.type === 'entrada');
-                if (entrada1) usedIds.add(entrada1.id);
+                let entrada1: TimeEntryRow | undefined;
+                let saida1: TimeEntryRow | undefined;
+                let entrada2: TimeEntryRow | undefined;
+                let saida2: TimeEntryRow | undefined;
                 
-                let saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
-                if (saida1) usedIds.add(saida1.id);
-                
-                let entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
-                if (entrada2) usedIds.add(entrada2.id);
-                
-                // FIX: Search for saida2 from the end (last 'saida') to avoid grabbing intermediate exits
-                let saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
-                if (saida2) usedIds.add(saida2.id);
+                if (is12x36 && !isNightShift && normalEntries.length === 4) {
+                    [entrada1, saida1, entrada2, saida2] = normalEntries;
+                    usedIds.add(entrada1.id);
+                    usedIds.add(saida1.id);
+                    usedIds.add(entrada2.id);
+                    usedIds.add(saida2.id);
+                } else {
+                    // 1. Try assign by type
+                    entrada1 = normalEntries.find(e => e.type === 'entrada');
+                    if (entrada1) usedIds.add(entrada1.id);
+                    
+                    saida1 = normalEntries.find(e => e.type === 'intervalo' && !usedIds.has(e.id));
+                    if (saida1) usedIds.add(saida1.id);
+                    
+                    entrada2 = normalEntries.find(e => e.type === 'retorno' && !usedIds.has(e.id));
+                    if (entrada2) usedIds.add(entrada2.id);
+                    
+                    // FIX: Search for saida2 from the end (last 'saida') to avoid grabbing intermediate exits
+                    saida2 = normalEntries.slice().reverse().find(e => e.type === 'saida' && !usedIds.has(e.id));
+                    if (saida2) usedIds.add(saida2.id);
+                }
                 
                 // 2. Fill gaps with unused entries respecting chronological order
                 const unusedEntries = normalEntries.filter(e => !usedIds.has(e.id));
@@ -1163,7 +1176,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 if (!saida2) saida2 = consumeNextUnused(t3Time);
 
                 // FIX: Fallback for night shift exit that might be sorted earlier due to wrong date (e.g. 07:00 on same day as start)
-                if (!saida2 && unusedEntries.length > 0) {
+                if (isNightShift && !saida2 && unusedEntries.length > 0) {
                      // Find an entry that looks like a morning exit (e.g. < 12:00)
                      const morningExitIndex = unusedEntries.findIndex(e => {
                          const h = new Date(e.timestamp).getHours();
