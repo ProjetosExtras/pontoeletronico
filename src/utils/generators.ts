@@ -1248,12 +1248,6 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     return `${pad(h, 2)}:${pad(m, 2)}`;
                 };
 
-                let normaisMinutes = 0;
-                if (shouldWork) {
-                    normaisMinutes = Math.min(workedMinutes, expectedMinutes);
-                } else {
-                    normaisMinutes = hasAnyEntry ? workedMinutes : 0;
-                }
                 const expectedStartDate = new Date(day);
                 const [eh, em] = expectedStart.split(':').map(Number);
                 expectedStartDate.setHours(eh, em, 0, 0);
@@ -1284,6 +1278,28 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     stipulatedInterval = 120;
                 } else {
                     stipulatedInterval = expectedMinutes > 360 ? 60 : (expectedMinutes > 240 ? 15 : 0);
+                }
+
+                let intervalPreAssinalado = false;
+                let effectiveWorkedMinutes = workedMinutes;
+                let effectiveIntervalMinutes = intervalMinutes;
+
+                if (
+                    is12x36 &&
+                    shouldWork &&
+                    stipulatedInterval > 0 &&
+                    intervalMinutes === 0 &&
+                    normalEntries.length <= 2 &&
+                    workedMinutes >= expectedMinutes + stipulatedInterval - 5
+                ) {
+                    intervalPreAssinalado = true;
+                    effectiveIntervalMinutes = stipulatedInterval;
+                    effectiveWorkedMinutes = Math.max(0, workedMinutes - stipulatedInterval);
+                }
+
+                let normaisMinutes = 0;
+                if (shouldWork) {
+                    normaisMinutes = Math.min(effectiveWorkedMinutes, expectedMinutes);
                 }
 
                 let extrasMinutes = 0;
@@ -1339,6 +1355,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     if (extrasMinutes <= 5) extrasMinutes = 0;
                     if (faltasMinutes <= 5) faltasMinutes = 0;
                     atrasoMinutes = faltasMinutes;
+                } else if (!shouldWork && hasAnyEntry) {
+                    extrasMinutes = effectiveWorkedMinutes;
+                    if (extrasMinutes <= 5) extrasMinutes = 0;
                 }
 
                 totalNormais += normaisMinutes;
@@ -1346,7 +1365,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 totalExtras += extrasMinutes;
                 totalAdicionalNoturno += nightMinutes;
                 totalAtrasos += atrasoMinutes;
-                totalTrabalhadas += workedMinutes;
+                totalTrabalhadas += effectiveWorkedMinutes;
 
                 const normalizeText = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
                 const justificationsList = dayEntries.map(e => e.justification).filter((j): j is string => !!j && String(j).trim().length > 0);
@@ -1398,8 +1417,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const adNot = nightMinutes > 0 ? formatMinutes(nightMinutes) : '';
                 const obs = obsParts.join(' | ');
 
-                const intervalStr = intervalMinutes > 0 ? formatMinutes(intervalMinutes) : '';
-                const totalStr = workedMinutes > 0 ? formatMinutes(workedMinutes) : '';
+                const intervalStrBase = effectiveIntervalMinutes > 0 ? formatMinutes(effectiveIntervalMinutes) : '';
+                const intervalStr = intervalPreAssinalado ? `${intervalStrBase}^` : intervalStrBase;
+                const totalStr = effectiveWorkedMinutes > 0 ? formatMinutes(effectiveWorkedMinutes) : '';
 
                 html += `
                     <tr class="${rowClass}">
