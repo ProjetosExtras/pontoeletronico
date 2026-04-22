@@ -298,8 +298,8 @@ const TimeClock = () => {
           return entry.type;
       }
       
-      // Check for specific night shift employees (IDs 10, 14, 26, 31)
-      const targetCodes = ['10', '14', '26', '31'];
+      // Check for specific night shift employees (IDs 10, 26, 31, 34)
+      const targetCodes = ['10', '26', '31', '34'];
       const empCode = entry.employees?.code;
       
       if (empCode && targetCodes.includes(empCode)) {
