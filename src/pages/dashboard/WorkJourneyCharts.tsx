@@ -214,76 +214,78 @@ const WorkJourneyCharts = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Horas por Dia</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <ChartContainer config={chartConfig} className="w-full">
-              <BarChart data={series}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis tickFormatter={(v) => `${v}h`} />
-                <ChartTooltip content={<ChartTooltipContent nameKey="horas" />} />
-                <Bar dataKey="horas" fill="var(--color-horas)" />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Horas por Dia</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center h-56">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <ChartContainer config={chartConfig} className="w-full aspect-auto h-56">
+                <BarChart data={series}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis tickFormatter={(v) => `${v}h`} />
+                  <ChartTooltip content={<ChartTooltipContent nameKey="horas" />} />
+                  <Bar dataKey="horas" fill="var(--color-horas)" />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Horas vs Intervalo (Empilhado)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <ChartContainer config={chartConfig} className="w-full">
-              <BarChart data={series}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis tickFormatter={(v) => `${v}h`} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="horas" stackId="a" fill="var(--color-horas)" />
-                <Bar dataKey="pausa" stackId="a" fill="var(--color-pausa)" />
-                <ChartLegend content={<ChartLegendContent />} />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Horas vs Intervalo (Empilhado)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center h-56">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <ChartContainer config={chartConfig} className="w-full aspect-auto h-56">
+                <BarChart data={series}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis tickFormatter={(v) => `${v}h`} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="horas" stackId="a" fill="var(--color-horas)" />
+                  <Bar dataKey="pausa" stackId="a" fill="var(--color-pausa)" />
+                  <ChartLegend content={<ChartLegendContent />} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Tendência Semanal (Média de Horas)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <ChartContainer config={chartConfig} className="w-full">
-              <LineChart data={weeklySeries}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semana" />
-                <YAxis tickFormatter={(v) => `${v}h`} />
-                <ChartTooltip content={<ChartTooltipContent nameKey="media" />} />
-                <Line dataKey="media" type="monotone" stroke="var(--color-media)" strokeWidth={2} dot />
-              </LineChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Tendência Semanal (Média de Horas)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center h-56">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <ChartContainer config={chartConfig} className="w-full aspect-auto h-56">
+                <LineChart data={weeklySeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="semana" />
+                  <YAxis tickFormatter={(v) => `${v}h`} />
+                  <ChartTooltip content={<ChartTooltipContent nameKey="media" />} />
+                  <Line dataKey="media" type="monotone" stroke="var(--color-media)" strokeWidth={2} dot />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 };
