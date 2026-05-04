@@ -13,6 +13,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Search, Edit, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +46,11 @@ type Employee = {
     | "seg_sex_08_11"
     | "seg_sex_08_12"
     | "seg_dom_0630_1550";
+  work_shift_id?: string | null;
+  work_shifts?: {
+    name?: string | null;
+    type?: string | null;
+  } | null;
 };
 
 const Employees = () => {
@@ -47,6 +58,7 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [employeeToView, setEmployeeToView] = useState<Employee | null>(null);
 
   const filteredEmployees = employees.filter(employee => 
     employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,7 +87,7 @@ const Employees = () => {
 
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, name, code, cpf, pis, job_title, admission_date, shift_type, pin, work_shift_id, work_shifts(name, type)')
         .eq('company_id', profile.company_id)
         .order('name');
       
@@ -151,6 +163,126 @@ const Employees = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!employeeToView} onOpenChange={(open) => !open && setEmployeeToView(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Funcionário</DialogTitle>
+          </DialogHeader>
+
+          {employeeToView && (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="text-sm text-muted-foreground">Nome</div>
+                <div className="col-span-2 text-sm font-medium">{employeeToView.name}</div>
+
+                <div className="text-sm text-muted-foreground">Matrícula</div>
+                <div className="col-span-2 text-sm">{employeeToView.code || "-"}</div>
+
+                <div className="text-sm text-muted-foreground">Cargo</div>
+                <div className="col-span-2 text-sm">{employeeToView.job_title || "-"}</div>
+
+                <div className="text-sm text-muted-foreground">Admissão</div>
+                <div className="col-span-2 text-sm">
+                  {employeeToView.admission_date ? employeeToView.admission_date.split("T")[0] : "-"}
+                </div>
+
+                <div className="text-sm text-muted-foreground">CPF</div>
+                <div className="col-span-2 text-sm">{employeeToView.cpf || "-"}</div>
+
+                <div className="text-sm text-muted-foreground">PIS</div>
+                <div className="col-span-2 text-sm">{employeeToView.pis || "-"}</div>
+
+                <div className="text-sm text-muted-foreground">Escala</div>
+                <div className="col-span-2 text-sm">
+                  {employeeToView.work_shifts?.name ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{employeeToView.work_shifts.name}</span>
+                      {employeeToView.work_shifts.type ? (
+                        <span className="text-xs text-muted-foreground">{employeeToView.work_shifts.type}</span>
+                      ) : null}
+                    </div>
+                  ) : employeeToView.shift_type === "12x36" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-purple-100 text-purple-800 hover:bg-purple-100"
+                    >
+                      12x36
+                    </Badge>
+                  ) : employeeToView.shift_type === "12x36_noturno" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-indigo-100 text-indigo-800 hover:bg-indigo-100"
+                    >
+                      12x36 Noturno
+                    </Badge>
+                  ) : employeeToView.shift_type === "3h_diurno" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      3h Diurno (08:00-11:00)
+                    </Badge>
+                  ) : employeeToView.shift_type === "standard_09_18" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      Padrão (09:00-18:00)
+                    </Badge>
+                  ) : employeeToView.shift_type === "seg_sex_08_11" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      SEG-SEX 08:00-11:00
+                    </Badge>
+                  ) : employeeToView.shift_type === "seg_sex_08_12" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      SEG-SEX 08:00-12:00
+                    </Badge>
+                  ) : employeeToView.shift_type === "seg_qui_sab_7_16_sex_7_11" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      SEG-QUI+SAB 07:00-16:00 | SEX 07:00-11:00
+                    </Badge>
+                  ) : employeeToView.shift_type === "seg_sex_07_16_sab_08_12" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      SEG-SEX 07:00-16:00 | SAB 08:00-12:00
+                    </Badge>
+                  ) : employeeToView.shift_type === "seg_dom_0630_1550" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      SEG-DOM 06:30-15:50
+                    </Badge>
+                  ) : employeeToView.shift_type === "4h_matutino" ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      4H MATUTINO (08:00-12:00)
+                    </Badge>
+                  ) : employeeToView.shift_type === "standard" ? (
+                    <Badge variant="outline">Padrão (Seg-Sex)</Badge>
+                  ) : (
+                    <Badge variant="outline">Normal</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center mb-4">
         <div className="relative w-full max-w-sm">
@@ -271,6 +403,14 @@ const Employees = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Ver informações"
+                            onClick={() => setEmployeeToView(employee)}
+                        >
+                            <Search className="h-4 w-4" />
+                        </Button>
                         <Button 
                             variant="ghost" 
                             size="icon"
