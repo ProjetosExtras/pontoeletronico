@@ -1323,48 +1323,12 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     faltasMinutes = expectedMinutes;
                     atrasoMinutes = faltasMinutes;
                 } else if (shouldWork && hasAnyEntry) {
-                    const tolBatida = (mins: number) => (mins <= 5 ? 0 : mins);
-                    const expectedEndDate = new Date(expectedStartDate.getTime() + (expectedMinutes + stipulatedInterval) * 60000);
-                    const actualStartDate = entrada1 ? new Date(entrada1.timestamp) : undefined;
-                    const endEntry = saida2 || saida1;
-                    let actualEndDate = endEntry ? new Date(endEntry.timestamp) : undefined;
-                    if (actualStartDate && actualEndDate && actualEndDate.getTime() < actualStartDate.getTime()) {
-                        actualEndDate = addDays(actualEndDate, 1);
+                    const diff = effectiveWorkedMinutes - expectedMinutes;
+                    if (diff > 0) {
+                        extrasMinutes = diff;
+                    } else if (diff < 0 && isPast && !hasAbono) {
+                        faltasMinutes = Math.abs(diff);
                     }
-
-                    const startDelta = actualStartDate ? Math.round((actualStartDate.getTime() - expectedStartDate.getTime()) / 60000) : 0;
-                    const endDelta = actualEndDate ? Math.round((actualEndDate.getTime() - expectedEndDate.getTime()) / 60000) : 0;
-
-                    const extraBeforeStartRaw = Math.max(0, -startDelta);
-                    const atrasoStartRaw = Math.max(0, startDelta);
-                    const extraAfterEndRaw = Math.max(0, endDelta);
-                    const saidaAntecipadaRaw = Math.max(0, -endDelta);
-
-                    let extraIntervalRaw = 0;
-                    let faltaIntervalRaw = 0;
-                    if (stipulatedInterval > 0 && saida1 && entrada2) {
-                        const diff = intervalMinutes - stipulatedInterval;
-                        if (diff < 0) extraIntervalRaw = Math.abs(diff);
-                        if (diff > 0) faltaIntervalRaw = diff;
-                    }
-
-                    const extrasRawTotal = extraBeforeStartRaw + extraAfterEndRaw + extraIntervalRaw;
-                    const faltasRawTotal = atrasoStartRaw + saidaAntecipadaRaw + faltaIntervalRaw;
-
-                    const extrasTolTotal =
-                        tolBatida(extraBeforeStartRaw) +
-                        tolBatida(extraAfterEndRaw) +
-                        tolBatida(extraIntervalRaw);
-                    const faltasTolTotal =
-                        tolBatida(atrasoStartRaw) +
-                        tolBatida(saidaAntecipadaRaw) +
-                        tolBatida(faltaIntervalRaw);
-
-                    const extrasCandidate = extrasTolTotal;
-                    const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
-
-                    extrasMinutes = extrasCandidate;
-                    faltasMinutes = faltasCandidate;
                     if (extrasMinutes <= 5) extrasMinutes = 0;
                     if (faltasMinutes <= 5) faltasMinutes = 0;
                     atrasoMinutes = faltasMinutes;
@@ -2351,47 +2315,36 @@ export const generateRelatorioAtrasosPDF = async (employeeId: string, monthStr: 
         if (shouldWork && isPast && !hasAnyEntry && !hasAbono) {
             atrasoMinutes = expectedMinutes;
         } else if (shouldWork && hasAnyEntry) {
-            const tolBatida = (mins: number) => (mins <= 5 ? 0 : mins);
-            const expectedEndDate = new Date(expectedStartDate.getTime() + (expectedMinutes + stipulatedInterval) * 60000);
-            const actualStartDate = entrada1 ? new Date(entrada1.timestamp) : undefined;
             const endEntry = saida2 || saida1;
-            let actualEndDate = endEntry ? new Date(endEntry.timestamp) : undefined;
-            if (actualStartDate && actualEndDate && actualEndDate.getTime() < actualStartDate.getTime()) {
-                actualEndDate = addDays(actualEndDate, 1);
+            let workedMinutes = 0;
+            if (entrada1 && endEntry) {
+                const start = new Date(entrada1.timestamp);
+                let end = new Date(endEntry.timestamp);
+                if (end.getTime() < start.getTime()) end = addDays(end, 1);
+                const presence = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+                workedMinutes = presence;
+                if (saida1 && entrada2) {
+                    const b1 = new Date(saida1.timestamp);
+                    let b2 = new Date(entrada2.timestamp);
+                    if (b2.getTime() < b1.getTime()) b2 = addDays(b2, 1);
+                    const breakMinutes = Math.max(0, Math.round((b2.getTime() - b1.getTime()) / 60000));
+                    workedMinutes = Math.max(0, presence - breakMinutes);
+                }
             }
 
-            const startDelta = actualStartDate ? Math.round((actualStartDate.getTime() - expectedStartDate.getTime()) / 60000) : 0;
-            const endDelta = actualEndDate ? Math.round((actualEndDate.getTime() - expectedEndDate.getTime()) / 60000) : 0;
-
-            const extraBeforeStartRaw = Math.max(0, -startDelta);
-            const atrasoStartRaw = Math.max(0, startDelta);
-            const extraAfterEndRaw = Math.max(0, endDelta);
-            const saidaAntecipadaRaw = Math.max(0, -endDelta);
-
-            let extraIntervalRaw = 0;
-            let faltaIntervalRaw = 0;
-            if (stipulatedInterval > 0 && saida1 && entrada2) {
-                const diff = intervalMinutes - stipulatedInterval;
-                if (diff < 0) extraIntervalRaw = Math.abs(diff);
-                if (diff > 0) faltaIntervalRaw = diff;
+            let effectiveWorkedMinutes = workedMinutes;
+            if (
+                is12x36 &&
+                shouldWork &&
+                stipulatedInterval > 0 &&
+                intervalMinutes === 0 &&
+                normalEntries.length <= 2 &&
+                workedMinutes >= expectedMinutes + stipulatedInterval - 5
+            ) {
+                effectiveWorkedMinutes = Math.max(0, workedMinutes - stipulatedInterval);
             }
 
-            const extrasRawTotal = extraBeforeStartRaw + extraAfterEndRaw + extraIntervalRaw;
-            const faltasRawTotal = atrasoStartRaw + saidaAntecipadaRaw + faltaIntervalRaw;
-
-            const extrasTolTotal =
-                tolBatida(extraBeforeStartRaw) +
-                tolBatida(extraAfterEndRaw) +
-                tolBatida(extraIntervalRaw);
-            const faltasTolTotal =
-                tolBatida(atrasoStartRaw) +
-                tolBatida(saidaAntecipadaRaw) +
-                tolBatida(faltaIntervalRaw);
-
-            const extrasCandidate = extrasTolTotal;
-            const faltasCandidate = (isPast && !hasAbono) ? faltasTolTotal : 0;
-
-            atrasoMinutes = Math.max(0, faltasCandidate - extrasCandidate);
+            atrasoMinutes = (isPast && !hasAbono) ? Math.max(0, expectedMinutes - effectiveWorkedMinutes) : 0;
             if (atrasoMinutes <= 5) atrasoMinutes = 0;
         }
 

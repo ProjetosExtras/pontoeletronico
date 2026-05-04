@@ -74,7 +74,20 @@ export function EmployeeFormDialog({ onSuccess, employeeToEdit, open: controlled
 
   useEffect(() => {
     async function fetchShifts() {
-        const { data } = await supabase.from('work_shifts').select('id, name').order('name');
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', user?.id)
+          .single();
+        if (profileError) throw profileError;
+        if (!profile?.company_id) return;
+        const { data, error } = await supabase
+          .from('work_shifts')
+          .select('id, name')
+          .eq('company_id', profile.company_id)
+          .order('name');
+        if (error) throw error;
         if (data) setWorkShifts(data);
     }
     fetchShifts();
