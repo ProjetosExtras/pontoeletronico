@@ -59,6 +59,7 @@ const TimeClock = () => {
   const [selectedDay, setSelectedDay] = useState<string>("");
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -420,6 +421,7 @@ const TimeClock = () => {
         toast.error("Erro ao excluir registro.");
         setLoading(false);
     } finally {
+        setIsDeleteDialogOpen(false);
         setEntryToDelete(null);
     }
   };
@@ -464,7 +466,14 @@ const TimeClock = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!entryToDelete} onOpenChange={(open) => !open && setEntryToDelete(null)}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (loading) return;
+          setIsDeleteDialogOpen(open);
+          if (!open) setEntryToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
@@ -476,6 +485,7 @@ const TimeClock = () => {
             <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
             <Button 
                 variant="destructive" 
+                type="button"
                 onClick={() => {
                     if (entryToDelete) {
                         handleDeleteEntry(entryToDelete);
@@ -618,7 +628,11 @@ const TimeClock = () => {
                                             <Button 
                                               variant="ghost" 
                                               size="icon" 
-                                              onClick={() => setEntryToDelete(entry.id)}
+                                              type="button"
+                                              onClick={() => {
+                                                setEntryToDelete(entry.id);
+                                                setIsDeleteDialogOpen(true);
+                                              }}
                                               className="text-red-500 hover:text-red-700 hover:bg-red-50"
                                               title="Excluir"
                                             >

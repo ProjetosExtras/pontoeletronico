@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Trash2, Pencil, Link2, Unlink } from "lucide-react";
+import { Loader2, Trash2, Pencil, Link2, Unlink, Search } from "lucide-react";
 import { toast } from "sonner";
 import { WorkShiftDialog } from "@/components/dashboard/WorkShiftDialog";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -40,6 +40,7 @@ type WorkShift = {
 type EmployeeOption = {
   id: string;
   name: string;
+  code?: string | null;
   work_shift_id?: string | null;
 };
 
@@ -51,6 +52,8 @@ export default function WorkShifts() {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [shiftToLink, setShiftToLink] = useState<WorkShift | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [shiftToView, setShiftToView] = useState<WorkShift | null>(null);
 
   useEffect(() => {
     fetchShifts();
@@ -73,7 +76,7 @@ export default function WorkShifts() {
   async function fetchEmployees(cid: string) {
     const { data, error } = await supabase
       .from("employees")
-      .select("id, name, work_shift_id")
+      .select("id, name, code, work_shift_id")
       .eq("company_id", cid)
       .order("name");
     if (error) throw error;
@@ -214,6 +217,17 @@ export default function WorkShifts() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
+                          setShiftToView(shift);
+                          setViewDialogOpen(true);
+                        }}
+                        title="Ver funcionários vinculados"
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
                           setShiftToLink(shift);
                           setSelectedEmployeeId("");
                           setLinkDialogOpen(true);
@@ -288,6 +302,68 @@ export default function WorkShifts() {
             >
               <Link2 className="mr-2 h-4 w-4" />
               Vincular
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={viewDialogOpen}
+        onOpenChange={(open) => {
+          setViewDialogOpen(open);
+          if (!open) setShiftToView(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Funcionários vinculados</DialogTitle>
+            <DialogDescription>
+              {shiftToView ? `Escala: ${shiftToView.name}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              Total:{" "}
+              {shiftToView
+                ? employees.filter((e) => e.work_shift_id === shiftToView.id).length
+                : 0}
+            </div>
+
+            <div className="max-h-[320px] overflow-auto rounded-md border">
+              {shiftToView ? (
+                (() => {
+                  const linked = employees.filter((e) => e.work_shift_id === shiftToView.id);
+                  if (linked.length === 0) {
+                    return (
+                      <div className="p-4 text-sm text-muted-foreground">
+                        Nenhum funcionário vinculado a esta escala.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="divide-y">
+                      {linked.map((emp) => (
+                        <div key={emp.id} className="flex items-center justify-between p-3">
+                          <div className="text-sm font-medium">{emp.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {emp.code ? `Matrícula: ${emp.code}` : ""}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="p-4 text-sm text-muted-foreground">Selecione uma escala.</div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
