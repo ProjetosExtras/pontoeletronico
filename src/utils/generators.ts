@@ -914,7 +914,8 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 const nonAbonoEntries = dayEntries.filter((e) => e.type !== 'abono');
                 const hasMorningNonAbono = nonAbonoEntries.some((e) => new Date(e.timestamp).getHours() < 14);
                 const hasEveningNonAbono = nonAbonoEntries.some((e) => new Date(e.timestamp).getHours() >= 18);
-                const applyNightRules = isForcedNight && !hasMorningNonAbono;
+                const isNightStartDay = hasEveningNonAbono && !hasMorningNonAbono;
+                const applyNightRules = isNightStartDay && is12x36;
 
                 if (isForcedNight && hasMorningNonAbono && !hasEveningNonAbono) {
                     const minTs = nonAbonoEntries.reduce((min, e) => Math.min(min, new Date(e.timestamp).getTime()), Number.POSITIVE_INFINITY);
@@ -943,7 +944,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     if (dow >= 1 && dow <= 5) expectedStart = '07:00';
                     else if (dow === 6) expectedStart = '08:00';
                 } else if (is12x36) {
-                    expectedStart = (isNightShift && applyNightRules) ? '19:00' : '07:00';
+                    expectedStart = applyNightRules ? '19:00' : '07:00';
                 } else if (isStandard0918 || isId3) {
                     if (dow === 6 && isSaturdayAlternating && dayEntries.length > 0) {
                         expectedStart = '08:00';
@@ -1046,7 +1047,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 // quando não houver nenhuma marcação de ponto normal.
                 let normalEntries = dayEntries.filter(e => e.type !== 'abono');
 
-                if (isNightShift && applyNightRules) {
+                if (applyNightRules) {
                     normalEntries = normalEntries.map((e) => {
                         const d = new Date(e.timestamp);
                         const hour = d.getHours();
@@ -1076,7 +1077,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 );
                 
                 const hasLateStart = normalEntries.some(e => new Date(e.timestamp).getHours() >= 18);
-                const shouldLookAhead = isNightShift ? (applyNightRules && hasLateStart) : (!is12x36 && hasLateStart && seemsIncomplete);
+                const shouldLookAhead = applyNightRules ? hasLateStart : (!is12x36 && hasLateStart && seemsIncomplete);
                 let lookedAheadEntries: TimeEntryRow[] = [];
 
                 if (shouldLookAhead && normalEntries.length > 0) {
@@ -1087,7 +1088,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     // Take entries from next day that are before 14:00 (2 PM)
                     // This covers the end of a night shift (07:00) plus potential overtime
                     // For day shifts (not night shift), limit lookahead to 06:00 AM to avoid consuming next day's morning shift
-                    const lookAheadLimit = isNightShift ? (applyNightRules ? 14 : 6) : 6;
+                    const lookAheadLimit = applyNightRules ? 14 : 6;
                     const nextDayShiftEntries = nextDayEntries.filter(e => {
                         const h = new Date(e.timestamp).getHours();
                         return h < lookAheadLimit && !consumedEntryIds.has(e.id) && e.type !== 'abono';
@@ -1106,7 +1107,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
 
                 // FIX: Detect and fix mis-dated night shift exits (e.g. 07:00 on same day as 19:00 start)
                 const startEntry = normalEntries.find(e => (e.type === 'entrada' || e.type === 'retorno') && new Date(e.timestamp).getHours() >= 18);
-                if (isNightShift && startEntry) {
+                if (applyNightRules && startEntry) {
                      normalEntries.forEach(e => {
                          const d = new Date(e.timestamp);
                          const h = d.getHours();
@@ -1131,7 +1132,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let entrada2: TimeEntryRow | undefined;
                 let saida2: TimeEntryRow | undefined;
                 
-                if ((is12x36 && !isNightShift && normalEntries.length === 4) || (isNightShift && normalEntries.length === 4)) {
+                if (is12x36 && normalEntries.length === 4) {
                     [entrada1, saida1, entrada2, saida2] = normalEntries;
                     usedIds.add(entrada1.id);
                     usedIds.add(saida1.id);
