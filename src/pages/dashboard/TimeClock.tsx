@@ -203,9 +203,7 @@ const TimeClock = () => {
                  if (diffHours < 14) { // 12x36 shift usually fits within 14h window (19h to 07h+delay)
                      buffer.push(entry);
                  } else {
-                     // Flush buffer
-                     if (buffer.length === 4) {
-                         // Assign types: Entrada, Intervalo, Retorno, Saida
+                     if (buffer.length === 4 && buffer.every((e) => !e.is_manual)) {
                          buffer[0].type = 'entrada';
                          buffer[1].type = 'intervalo';
                          buffer[2].type = 'retorno';
@@ -218,11 +216,11 @@ const TimeClock = () => {
         }
         // Flush remaining
         if (buffer.length > 0) {
-            if (buffer.length === 4) {
-                 buffer[0].type = 'entrada';
-                 buffer[1].type = 'intervalo';
-                 buffer[2].type = 'retorno';
-                 buffer[3].type = 'saida';
+            if (buffer.length === 4 && buffer.every((e) => !e.is_manual)) {
+              buffer[0].type = 'entrada';
+              buffer[1].type = 'intervalo';
+              buffer[2].type = 'retorno';
+              buffer[3].type = 'saida';
             }
             processedEntries.push(...buffer);
         }

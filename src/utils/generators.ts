@@ -813,9 +813,9 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                     .info-label { width: 100px; background-color: #f0f0f0; padding: 1px 4px; font-weight: bold; border-right: 1px solid #ddd; display: flex; align-items: center; font-size: 9px; }
                     .info-value { flex: 1; padding: 1px 4px; display: flex; align-items: center; font-size: 9px; }
                     .section-title { font-weight: bold; background-color: #e0e0e0; padding: 3px; border: 1px solid #ccc; text-align: center; font-size: 10px; }
-                    .main-table th { background-color: #333; color: white; text-align: center; font-size: 8px; padding: 4px 2px; }
-                    .main-table td { text-align: center; font-size: 8px; height: 16px; padding: 3px 2px; line-height: 1.3; }
-                    .row-day { background-color: #fff; text-align: left !important; padding-left: 5px !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 16px; line-height: 16px; }
+                    .main-table th { background-color: #333; color: white; text-align: center; font-size: 8px; padding: 5px 2px; line-height: 1.4; vertical-align: middle; }
+                    .main-table td { text-align: center; font-size: 8px; padding: 5px 2px; line-height: 1.4; vertical-align: middle; }
+                    .row-day { background-color: #fff; text-align: left !important; padding: 5px 2px 5px 5px !important; font-weight: normal; font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; vertical-align: middle; }
                     .weekend { background-color: #f5f5f5; }
                     .totals-row td { background-color: #f0f0f0; font-weight: bold; border-top: 2px solid #000; }
                     .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
@@ -1132,7 +1132,7 @@ export const generateEspelhoPDF = async (employeeId?: string, referenceDate?: st
                 let entrada2: TimeEntryRow | undefined;
                 let saida2: TimeEntryRow | undefined;
                 
-                if (is12x36 && normalEntries.length === 4) {
+                if (is12x36 && !isNightShift && !applyNightRules && normalEntries.length === 4 && normalEntries.every((e) => !e.is_manual)) {
                     [entrada1, saida1, entrada2, saida2] = normalEntries;
                     usedIds.add(entrada1.id);
                     usedIds.add(saida1.id);
